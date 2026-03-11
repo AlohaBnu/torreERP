@@ -6,3 +6,4 @@ mysql-connector-python
 streamlit-option-menu
 openai
 google-generativeai
+python-dotenv
