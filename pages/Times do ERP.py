@@ -10,3 +10,7 @@ st.image("TechLead.png", caption="Squad Tech Lead ERP", use_container_width=True
 st.title("📊 Foundation")
 # Imagem PNG abaixo
 st.image("squadFoundation.png", caption="Squad Foundation ERP", use_container_width=True)
+
+st.title("📊 Alocação")
+# Imagem PNG abaixo
+st.image("alocacao.png", caption="Squad Alocação ERP", use_container_width=True)
