@@ -4,3 +4,4 @@ openpyxl
 plotly
 mysql-connector-python
 streamlit-option-menu
+openai
