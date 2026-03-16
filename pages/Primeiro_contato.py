@@ -12,7 +12,7 @@ st.set_page_config(layout="wide")
 # -----------------------------
 def enviar_teams(mensagem):
 
-    url = "https://seniorsistemassa.webhook.office.com/webhookb2/80f3d2d7-31c4-401e-9e26-247fd18db3e9@62c7b02d-a95c-498b-9a7f-6e00acab728d/IncomingWebhook/25fe6c352c024b59934e33a0fd5c8837/5ba9219d-0082-4f37-85b4-2e8c7b765ebb/V2gK0hcGo7CG36XH6KDd0uk16boOLojoWZUujRrKC4STs1"
+    url = "https://seniorsistemassa.webhook.office.com/webhookb2/2ec08012-d3e0-4d18-be82-b95599cc930f@62c7b02d-a95c-498b-9a7f-6e00acab728d/IncomingWebhook/6ac41ddb5ab948a4807134eba796d50d/5ba9219d-0082-4f37-85b4-2e8c7b765ebb/V2Yce2GRpGah5YqEisv4OzDPg91rLg6dZy1IJkJv5d5P01"
 
     payload = {"text": mensagem}
     headers = {"Content-Type": "application/json"}
