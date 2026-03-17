@@ -5,9 +5,6 @@ from datetime import datetime
 import requests
 import json
 
-
-
-
 st.set_page_config(layout="wide")
 
 # -----------------------------
@@ -15,7 +12,7 @@ st.set_page_config(layout="wide")
 # -----------------------------
 def enviar_teams(mensagem):
 
-    url = "https://seniorsistemassa.webhook.office.com/webhookb2/2ec08012-d3e0-4d18-be82-b95599cc930f@62c7b02d-a95c-498b-9a7f-6e00acab728d/IncomingWebhook/6ac41ddb5ab948a4807134eba796d50d/5ba9219d-0082-4f37-85b4-2e8c7b765ebb/V2Yce2GRpGah5YqEisv4OzDPg91rLg6dZy1IJkJv5d5P01"
+    url = "https://seniorsistemassa.webhook.office.com/webhookb2/..."
 
     payload = {"text": mensagem}
     headers = {"Content-Type": "application/json"}
@@ -25,10 +22,6 @@ def enviar_teams(mensagem):
         return r.status_code == 200
     except:
         return False
-
-
-
-
 
 
 # -----------------------------
@@ -43,10 +36,6 @@ def limpar_texto(texto):
     texto = unicodedata.normalize('NFKD', texto).encode('ASCII','ignore').decode('ASCII')
 
     return texto
-
-
-
-
 
 
 # -----------------------------
@@ -90,22 +79,9 @@ if arquivo:
         if "gerente" in col:
             col_gerente = mapa[col]
 
-
-
-
-
-
-
-
-
-
-
     # -----------------------------
     # 🔵 TRATAMENTO DATAS
     # -----------------------------
-
-
-
     df[col_criacao] = pd.to_datetime(df[col_criacao], errors="coerce").dt.date
     df[col_termino] = pd.to_datetime(df[col_termino], errors="coerce")
 
@@ -113,14 +89,9 @@ if arquivo:
 
     hoje = datetime.today().date()
 
-
-
-
-    df["Primeiro Contato"] = df[col_contato].isin(["true","sim","verdadeiro"])
-
+    df["Primeiro Contato"] = df[col_contato].isin(["true", "sim", "verdadeiro"])
 
     df["Dias Sem Contato"] = None
-
 
     df.loc[df["Primeiro Contato"] == False, "Dias Sem Contato"] = (
         hoje - df[col_criacao]
@@ -129,7 +100,6 @@ if arquivo:
     # -----------------------------
     # 🔵 FAROL SLA
     # -----------------------------
-
     def classificar(dias):
 
         if pd.isna(dias):
@@ -137,10 +107,8 @@ if arquivo:
 
         if dias <= 2:
             return "🟢 Dentro SLA"
-
         elif dias <= 3:
             return "🟡 Atenção"
-
         else:
             return "🔴 Estourado"
 
@@ -149,18 +117,12 @@ if arquivo:
     # -----------------------------
     # 🔵 FILTROS
     # -----------------------------
-
     st.sidebar.title("🎛️ Filtros")
 
     df_filtrado = df.copy()
 
-
-    # 🔹 FILTRO PROJETO
+    # 🔹 PROJETO
     if col_projeto:
-
-
-
-
         projetos = st.sidebar.multiselect(
             "Projeto",
             sorted(df[col_projeto].dropna().unique())
@@ -169,34 +131,20 @@ if arquivo:
         if projetos:
             df_filtrado = df_filtrado[df_filtrado[col_projeto].isin(projetos)]
 
-
-    # 🔹 FILTRO FASE
+    # 🔹 FASE
     if col_fase:
-
-
         fases = sorted(df[col_fase].dropna().unique())
 
-        fase = st.sidebar.multiselect(
-            "Fase",
-            fases
-        )
+        fase = st.sidebar.multiselect("Fase", fases)
 
         if fase:
             df_filtrado = df_filtrado[df_filtrado[col_fase].isin(fase)]
 
-
-
-
-    # 🔹 FILTRO DATA TÉRMINO (MÊS/ANO)
-
-
+    # 🔹 DATA TÉRMINO
     if col_termino:
-
         df_filtrado["MesAnoTermino"] = df_filtrado[col_termino].dt.strftime("%m/%Y")
 
         meses = sorted(df_filtrado["MesAnoTermino"].dropna().unique())
-
-
 
         mes = st.sidebar.multiselect(
             "Data Término Planejada (Mês/Ano)",
@@ -206,22 +154,13 @@ if arquivo:
         if mes:
             df_filtrado = df_filtrado[df_filtrado["MesAnoTermino"].isin(mes)]
 
-    # 🔹 FILTRO PRIMEIRO CONTATO
-
-
-
-
-
-
+    # 🔹 PRIMEIRO CONTATO
     contato = st.sidebar.multiselect(
         "Primeiro Contato",
-        ["Com Contato","Sem Contato"]
+        ["Com Contato", "Sem Contato"]
     )
 
     if contato:
-
-
-
 
         if "Com Contato" in contato and "Sem Contato" not in contato:
             df_filtrado = df_filtrado[df_filtrado["Primeiro Contato"] == True]
@@ -229,19 +168,14 @@ if arquivo:
         elif "Sem Contato" in contato and "Com Contato" not in contato:
             df_filtrado = df_filtrado[df_filtrado["Primeiro Contato"] == False]
 
-
-
     # -----------------------------
     # 🔵 MÉTRICAS
     # -----------------------------
-
     total = df_filtrado.shape[0]
     com_contato = df_filtrado[df_filtrado["Primeiro Contato"] == True].shape[0]
     sem_contato = df_filtrado[df_filtrado["Primeiro Contato"] == False].shape[0]
 
-
-    c1,c2,c3 = st.columns(3)
-
+    c1, c2, c3 = st.columns(3)
 
     c1.metric("📁 Total", total)
     c2.metric("📞 Com 1º Contato", com_contato)
@@ -250,28 +184,15 @@ if arquivo:
     # -----------------------------
     # 🔵 FAROL SLA
     # -----------------------------
-
-
     df_risco = df_filtrado[df_filtrado["Primeiro Contato"] == False]
-
 
     verde = df_risco[df_risco["Farol SLA"] == "🟢 Dentro SLA"].shape[0]
     amarelo = df_risco[df_risco["Farol SLA"] == "🟡 Atenção"].shape[0]
     vermelho = df_risco[df_risco["Farol SLA"] == "🔴 Estourado"].shape[0]
 
-
     st.subheader("🚦 Farol SLA Primeiro Contato")
 
-
-
-
-
-    f1,f2,f3 = st.columns(3)
-
-
-
-
-
+    f1, f2, f3 = st.columns(3)
 
     f1.metric("🟢 Dentro SLA", verde)
     f2.metric("🟡 Atenção", amarelo)
@@ -280,15 +201,9 @@ if arquivo:
     # -----------------------------
     # 🔵 MENSAGEM TEAMS
     # -----------------------------
-
     mensagem = ""
 
-
-
-
     if not df_risco.empty:
-
-
 
         mensagem = "🚨 ALERTA DE PROJETOS SEM PRIMEIRO CONTATO\n\n"
         mensagem += "Projeto | Gerente | Criado em | Dias\n"
@@ -299,11 +214,7 @@ if arquivo:
             projeto = row[col_projeto] if col_projeto else "N/A"
             gerente = row[col_gerente] if col_gerente else "N/A"
 
-
             data_criacao = row[col_criacao]
-
-
-
 
             if pd.notna(data_criacao):
                 data_criacao = data_criacao.strftime("%d/%m/%Y")
@@ -312,18 +223,13 @@ if arquivo:
 
             dias = row["Dias Sem Contato"]
 
-
-
             mensagem += f"{projeto} | {gerente} | {data_criacao} | {dias}\n"
 
     # -----------------------------
     # 🔵 BOTÃO TEAMS
     # -----------------------------
-
     st.divider()
-
     st.subheader("📢 Enviar alerta ao Teams")
-
 
     if mensagem:
 
@@ -336,16 +242,12 @@ if arquivo:
             else:
                 st.error("❌ Falha ao enviar mensagem")
 
-
     else:
-
-
         st.info("Nenhum projeto sem primeiro contato")
 
     # -----------------------------
     # 🔵 TABELA
     # -----------------------------
-
     st.subheader("📋 Projetos")
 
     df_filtrado = df_filtrado.sort_values(
@@ -357,15 +259,7 @@ if arquivo:
     df_exibicao = df_filtrado.reset_index(drop=True)
     df_exibicao.index += 1
 
-
-
     st.dataframe(df_exibicao, use_container_width=True)
 
-
-
-
-
 else:
-
-
     st.info("👆 Envie a planilha para visualizar o dashboard")
