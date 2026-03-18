@@ -7,6 +7,11 @@ import json
 
 st.set_page_config(layout="wide")
 
+# Extração do ServiceNow 
+# https://seniorprod.service-now.com/now/nav/ui/classic/params/target/tsp1_project_list.do%3Fsysparm_query%3DstateIN-5%252C1%252C2%252C5%252C6%252C7%255Eassignment_group%253Da2bbdcfd87713510241863930cbb355f%255Eu_type_serviceINimplementation_project%252Cfactory_project%252Cseparete_project%252Cservices_included_recurrence%255Eu_tipo_de_metodologiaIN10%252C30%252C40%252C50%252C60%252C70%252C80%252C90%252C100%255Esys_created_onONThis%25２０year%40javascript%3Ags.beginningOfThisYear()%40javascript%3Ags.endOfThisYear()%26sysparm_first_row%3D1%２6sysparm_view%3D#
+# Projetos com base no ano de 2026
+
+
 # -----------------------------
 # 🔵 WEBHOOK TEAMS
 # -----------------------------
