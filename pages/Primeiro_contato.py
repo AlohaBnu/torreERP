@@ -112,10 +112,10 @@ if arquivo:
         if pd.isna(dias):
             return "OK"
 
-        if dias <= 2:
+        if dias <= 1:
             return "🟢 Dentro SLA"
 
-        elif dias <= 3:
+        elif dias <= 2:
             return "🟡 Atenção"
 
         else:
