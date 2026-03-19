@@ -1,5 +1,5 @@
 import streamlit as st
-from gpt4all import GPT4All
+from transformers import pipeline
 from utils import extract_text, split_text, create_index, search
 
 # Carregar documento
@@ -10,14 +10,13 @@ chunks = split_text(document_text)
 # Criar índice FAISS
 model, index, chunks = create_index(chunks)
 
-# Carregar LLM local (modelo gratuito)
-llm = GPT4All("gpt4all-falcon-q4.bin")  # baixe o modelo antes
+# Carregar modelo de linguagem da Hugging Face (gratuito, roda online/local)
+qa_pipeline = pipeline("text-generation", model="google/flan-t5-small")
 
-# Função do agente
 def ask_agent(query):
     context = search(query, model, index, chunks)
     prompt = f"Baseado no documento PO-250, responda:\n\n{context}\n\nPergunta: {query}\nResposta:"
-    response = llm.generate(prompt)
+    response = qa_pipeline(prompt, max_length=200, do_sample=False)[0]["generated_text"]
     return response
 
 # Interface Streamlit
