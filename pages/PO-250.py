@@ -1,3 +1,6 @@
+# Instale antes:
+# pip install pdfplumber sentence-transformers faiss-cpu
+
 import pdfplumber
 from sentence_transformers import SentenceTransformer
 import faiss
@@ -35,14 +38,22 @@ def perguntar(query, model, index, chunks, k=3):
 # === 5. Exemplo de uso ===
 if __name__ == "__main__":
     texto = ler_pdf("PO-250.pdf")  # coloque o nome do seu PDF aqui
-    chunks = dividir_texto(texto)
-    model, index, chunks = criar_indice(chunks)
+    print(f"Tamanho do texto extraído: {len(texto)} caracteres")
 
-    # Pergunta de exemplo
-    pergunta = "O que é CIV?"
-    respostas = perguntar(pergunta, model, index, chunks)
+    if len(texto.strip()) == 0:
+        print("⚠️ Nenhum texto foi extraído do PDF. Ele pode estar em formato de imagem.")
+    else:
+        chunks = dividir_texto(texto)
+        model, index, chunks = criar_indice(chunks)
 
-    print("\n--- Resposta ---")
-    for r in respostas:
-        print(r)
-        print("---------------")
+        # Pergunta de exemplo
+        pergunta = "O que é CIV?"
+        respostas = perguntar(pergunta, model, index, chunks)
+
+        print("\n--- Resposta ---")
+        if respostas:
+            for r in respostas:
+                print(r)
+                print("---------------")
+        else:
+            print("⚠️ Nenhum trecho relevante encontrado.")
