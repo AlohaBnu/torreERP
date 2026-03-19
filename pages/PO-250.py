@@ -1,12 +1,16 @@
-from PyPDF2 import PdfReader
+import pdfplumber
 from sentence_transformers import SentenceTransformer
 import faiss
 import numpy as np
 
 # === 1. Ler PDF ===
 def ler_pdf(caminho_pdf):
-    reader = PdfReader(caminho_pdf)
-    texto = " ".join([page.extract_text() for page in reader.pages if page.extract_text()])
+    texto = ""
+    with pdfplumber.open(caminho_pdf) as pdf:
+        for page in pdf.pages:
+            page_text = page.extract_text()
+            if page_text:
+                texto += page_text + " "
     return texto
 
 # === 2. Dividir em chunks ===
