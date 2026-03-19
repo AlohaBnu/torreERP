@@ -12,7 +12,7 @@ def extract_text(pdf_path):
                 text += page_text + "\n"
     return text
 
-def split_text(text, chunk_size=500):
+def split_text(text, chunk_size=300):
     words = text.split()
     chunks = []
     for i in range(0, len(words), chunk_size):
@@ -26,7 +26,7 @@ def create_index(chunks):
     index.add(np.array(embeddings))
     return model, index, chunks
 
-def search(query, model, index, chunks, top_k=3):
+def search(query, model, index, chunks, top_k=2):
     query_emb = model.encode([query])
     distances, indices = index.search(np.array(query_emb), top_k)
     results = [chunks[i] for i in indices[0]]

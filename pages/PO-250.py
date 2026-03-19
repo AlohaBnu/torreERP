@@ -10,17 +10,18 @@ chunks = split_text(document_text)
 # Criar índice FAISS
 model, index, chunks = create_index(chunks)
 
-# Carregar modelo de linguagem da Hugging Face (gratuito, roda online/local)
-qa_pipeline = pipeline("text-generation", model="google/flan-t5-small")
+# Carregar modelo de QA otimizado (rápido e leve)
+qa_pipeline = pipeline("question-answering", model="distilbert-base-cased-distilled-squad")
 
 def ask_agent(query):
     context = search(query, model, index, chunks)
-    prompt = f"Baseado no documento PO-250, responda:\n\n{context}\n\nPergunta: {query}\nResposta:"
-    response = qa_pipeline(prompt, max_length=200, do_sample=False)[0]["generated_text"]
-    return response
+    # Usar apenas o trecho mais relevante
+    best_context = context[0] if context else ""
+    response = qa_pipeline(question=query, context=best_context)
+    return response["answer"]
 
 # Interface Streamlit
-st.title("Agente PO-250 📘")
+st.title("Agente PO-250 ⚡")
 query = st.text_input("Digite sua pergunta:")
 
 if query:
