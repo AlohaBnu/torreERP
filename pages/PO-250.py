@@ -1,32 +1,44 @@
-import streamlit as st
-from utils import extract_text, split_text, create_index, search
+from PyPDF2 import PdfReader
+from sentence_transformers import SentenceTransformer
+import faiss
+import numpy as np
 
-# Caminho do documento PDF
-pdf_path = "PO-250.pdf"
+# === 1. Ler PDF ===
+def ler_pdf(caminho_pdf):
+    reader = PdfReader(caminho_pdf)
+    texto = " ".join([page.extract_text() for page in reader.pages if page.extract_text()])
+    return texto
 
-# Extrair texto do PDF
-document_text = extract_text(pdf_path)
+# === 2. Dividir em chunks ===
+def dividir_texto(texto, tamanho=500):
+    return [texto[i:i+tamanho] for i in range(0, len(texto), tamanho)]
 
-# Dividir em chunks menores
-chunks = split_text(document_text)
+# === 3. Criar índice vetorial ===
+def criar_indice(chunks):
+    model = SentenceTransformer('all-MiniLM-L6-v2')
+    embeddings = model.encode(chunks)
+    index = faiss.IndexFlatL2(embeddings.shape[1])
+    index.add(np.array(embeddings))
+    return model, index, chunks
 
-# Criar índice FAISS com embeddings
-model, index, chunks = create_index(chunks)
+# === 4. Função para perguntas ===
+def perguntar(query, model, index, chunks, k=3):
+    query_emb = model.encode([query])
+    D, I = index.search(np.array(query_emb), k)
+    respostas = [chunks[idx] for idx in I[0]]
+    return respostas
 
-# Função principal do agente
-def ask_agent(query):
-    context = search(query, model, index, chunks)
-    if not context:
-        return "Nenhum trecho relevante encontrado no documento."
-    return "\n\n".join(context)
+# === 5. Exemplo de uso ===
+if __name__ == "__main__":
+    texto = ler_pdf("documento.pdf")  # coloque o nome do seu PDF aqui
+    chunks = dividir_texto(texto)
+    model, index, chunks = criar_indice(chunks)
 
-# Interface Streamlit
-st.title("Agente PO-250 ⚡ (versão rápida)")
-st.write("Faça perguntas sobre o documento PO-250 e receba os trechos relevantes.")
+    # Pergunta de exemplo
+    pergunta = "O que é CIV?"
+    respostas = perguntar(pergunta, model, index, chunks)
 
-query = st.text_input("Digite sua pergunta:")
-
-if query:
-    answer = ask_agent(query)
-    st.write("### Trechos encontrados:")
-    st.write(answer)
+    print("\n--- Resposta ---")
+    for r in respostas:
+        print(r)
+        print("---------------")
