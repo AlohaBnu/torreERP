@@ -8,7 +8,7 @@ import json
 st.set_page_config(layout="wide")
 
 # Extração do ServiceNow 
-# https://seniorprod.service-now.com/now/nav/ui/classic/params/target/tsp1_project_list.do%3Fsysparm_query%3DstateIN-5%252C1%252C2%252C5%252C6%252C7%255Eassignment_group%253Da2bbdcfd87713510241863930cbb355f%255Eu_type_serviceINimplementation_project%252Cfactory_project%252Cseparete_project%252Cservices_included_recurrence%255Eu_tipo_de_metodologiaIN10%252C30%252C40%252C50%252C60%252C70%252C80%252C90%252C100%255Esys_created_onONThis%25２０year%40javascript%3Ags.beginningOfThisYear()%40javascript%3Ags.endOfThisYear()%26sysparm_first_row%3D1%２6sysparm_view%3D#
+# https://seniorprod.service-now.com/now/nav/ui/classic/params/target/tsp1_project_list.do%3Fsysparm_query%3DstateIN-5%252C1%252C2%252C5%252C6%252C7%255Eassignment_group%253Da2bbdcfd87713510241863930cbb355f%255Eu_type_serviceINimplementation_project%252Cfactory_project%252Cseparete_project%252Cservices_included_recurrence%255Eu_tipo_de_metodologiaIN10%252C30%252C40%252C50%252C60%252C70%252C80%252C90%252C100%255Esys_created_onONThis%25２０year%40javascript%3Ags.beginningOfThisYear()%40javascript%3Ags.endOfThisYear()%26sysparm_first_row%3D1%２6sysparm_view%3D
 # Projetos com base no ano de 2026
 
 
@@ -17,7 +17,7 @@ st.set_page_config(layout="wide")
 # -----------------------------
 def enviar_teams(mensagem):
 
-    url = "https://seniorsistemassa.webhook.office.com/webhookb2/2ec08012-d3e0-4d18-be82-b95599cc930f@62c7b02d-a95c-498b-9a7f-6e00acab728d/IncomingWebhook/6ac41ddb5ab948a4807134eba796d50d/5ba9219d-0082-4f37-85b4-2e8c7b765ebb/V2Yce2GRpGah5YqEisv4OzDPg91rLg6dZy1IJkJv5d5P01"
+    url = "https://seniorsistemassa.webhook.office.com/webhookb2/b964e08b-735f-4b1c-97e3-3f4ffdbf8419@62c7b02d-a95c-498b-9a7f-6e00acab728d/IncomingWebhook/b4b99bcc640a440bb279ff77af06d33a/5ba9219d-0082-4f37-85b4-2e8c7b765ebb/V25uCPmkKD6JSuTQlkkD7E4RCZBM7r9Ksmkt2_Q4B88qw1"
 
     payload = {"text": mensagem}
     headers = {"Content-Type": "application/json"}
