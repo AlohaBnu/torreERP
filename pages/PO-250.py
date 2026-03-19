@@ -1,30 +1,32 @@
 import streamlit as st
-from transformers import pipeline
 from utils import extract_text, split_text, create_index, search
 
-# Carregar documento
+# Caminho do documento PDF
 pdf_path = "PO-250.pdf"
+
+# Extrair texto do PDF
 document_text = extract_text(pdf_path)
+
+# Dividir em chunks menores
 chunks = split_text(document_text)
 
-# Criar índice FAISS
+# Criar índice FAISS com embeddings
 model, index, chunks = create_index(chunks)
 
-# Carregar modelo de QA otimizado (rápido e leve)
-qa_pipeline = pipeline("question-answering", model="distilbert-base-cased-distilled-squad")
-
+# Função principal do agente
 def ask_agent(query):
     context = search(query, model, index, chunks)
-    # Usar apenas o trecho mais relevante
-    best_context = context[0] if context else ""
-    response = qa_pipeline(question=query, context=best_context)
-    return response["answer"]
+    if not context:
+        return "Nenhum trecho relevante encontrado no documento."
+    return "\n\n".join(context)
 
 # Interface Streamlit
-st.title("Agente PO-250 ⚡")
+st.title("Agente PO-250 ⚡ (versão rápida)")
+st.write("Faça perguntas sobre o documento PO-250 e receba os trechos relevantes.")
+
 query = st.text_input("Digite sua pergunta:")
 
 if query:
     answer = ask_agent(query)
-    st.write("### Resposta:")
+    st.write("### Trechos encontrados:")
     st.write(answer)
