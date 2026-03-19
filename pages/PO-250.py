@@ -34,7 +34,7 @@ def perguntar(query, model, index, chunks, k=3):
 
 # === 5. Exemplo de uso ===
 if __name__ == "__main__":
-    texto = ler_pdf("documento.pdf")  # coloque o nome do seu PDF aqui
+    texto = ler_pdf("PO-250.pdf")  # coloque o nome do seu PDF aqui
     chunks = dividir_texto(texto)
     model, index, chunks = criar_indice(chunks)
 
