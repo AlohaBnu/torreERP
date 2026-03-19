@@ -1,30 +1,27 @@
 import streamlit as st
-import os
 import requests
-import json
 
 from langchain.document_loaders import PyPDFLoader
 from langchain.text_splitter import CharacterTextSplitter
-from langchain.embeddings import OpenAIEmbeddings
+from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
 
-# 🔑 SUA API KEY (SEM "Bearer")
-OPENAI_API_KEY = "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"
+# 🔑 TOKEN HUGGING FACE
+HF_TOKEN = "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"
 
 st.set_page_config(layout="wide")
-st.title("📄 Análise Inteligente de PDF com OpenAI")
+st.title("📄 Chat com PDF (100% Gratuito)")
 
-# Upload do PDF
 uploaded_file = st.file_uploader("Envie seu PDF", type="pdf")
 
 if uploaded_file:
     with open("temp.pdf", "wb") as f:
         f.write(uploaded_file.read())
 
-    st.success("PDF carregado com sucesso!")
+    st.success("PDF carregado!")
 
     # -----------------------------
-    # 📄 PROCESSAMENTO DO PDF
+    # 📄 PROCESSAMENTO
     # -----------------------------
     loader = PyPDFLoader("temp.pdf")
     documents = loader.load()
@@ -35,76 +32,75 @@ if uploaded_file:
     )
     docs = splitter.split_documents(documents)
 
-    embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
-    db = FAISS.from_documents(docs, embeddings)
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    )
 
+    db = FAISS.from_documents(docs, embeddings)
     retriever = db.as_retriever()
 
     # -----------------------------
-    # 💬 PERGUNTA LIVRE
+    # 🤖 FUNÇÃO IA (HF API)
     # -----------------------------
-    pergunta = st.text_input("Faça uma pergunta sobre o PDF:")
+    def perguntar_hf(contexto, pergunta):
 
-    def perguntar_openai(contexto, pergunta):
-        url = "https://api.openai.com/v1/chat/completions"
+        API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-large"
 
         headers = {
-            "Authorization": f"Bearer {OPENAI_API_KEY}",
-            "Content-Type": "application/json"
+            "Authorization": f"Bearer {HF_TOKEN}"
         }
 
         prompt = f"""
-        Responda com base SOMENTE no contexto abaixo.
+        Responda baseado apenas no contexto abaixo.
 
-        CONTEXTO:
+        Contexto:
         {contexto}
 
-        PERGUNTA:
+        Pergunta:
         {pergunta}
         """
 
-        data = {
-            "model": "gpt-4o-mini",
-            "messages": [
-                {"role": "system", "content": "Você é um assistente que responde baseado em documentos."},
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": 0.2
+        payload = {
+            "inputs": prompt
         }
 
-        response = requests.post(url, headers=headers, json=data)
-        return response.json()["choices"][0]["message"]["content"]
+        response = requests.post(API_URL, headers=headers, json=payload)
+        return response.json()[0]["generated_text"]
+
+    # -----------------------------
+    # 💬 PERGUNTA
+    # -----------------------------
+    pergunta = st.text_input("Faça sua pergunta:")
 
     if pergunta:
         docs_encontrados = retriever.get_relevant_documents(pergunta)
         contexto = "\n\n".join([doc.page_content for doc in docs_encontrados])
 
-        resposta = perguntar_openai(contexto, pergunta)
+        resposta = perguntar_hf(contexto, pergunta)
 
         st.subheader("🧠 Resposta")
         st.write(resposta)
 
     # -----------------------------
-    # 📊 INSIGHTS AUTOMÁTICOS
+    # 📊 INSIGHTS
     # -----------------------------
-    if st.button("📊 Gerar Insights do Documento"):
+    if st.button("📊 Gerar Insights"):
         docs_encontrados = retriever.get_relevant_documents("resumo do documento")
         contexto = "\n\n".join([doc.page_content for doc in docs_encontrados])
 
-        prompt_insights = """
-        Analise o documento e gere:
+        prompt = """
+        Gere:
 
         1. Resumo Executivo
-        2. Principais Pontos de Atenção
+        2. Pontos de Atenção
         3. Aspectos Positivos
         4. Aspectos Negativos
         5. Recomendações
 
-        Baseie-se SOMENTE no conteúdo fornecido.
-        Não invente informações.
+        Baseado SOMENTE no contexto.
         """
 
-        insights = perguntar_openai(contexto, prompt_insights)
+        resposta = perguntar_hf(contexto, prompt)
 
         st.subheader("📊 Insights")
-        st.write(insights)
+        st.write(resposta)
