@@ -39,3 +39,4 @@ Aqui você conectará o modelo de IA usando o prompt base + a pergunta do usuár
 
     with st.chat_message("assistant"):
         st.markdown(resposta)
+        
