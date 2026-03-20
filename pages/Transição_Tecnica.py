@@ -59,7 +59,7 @@ Regras:
 - sempre que possível, apresente a resposta com:
   1. conceito
   2. como aplicar
-  3. exemplo prático
+  3. exemplo prático1
   4. recomendação
 - quando a pergunta estiver genérica, responda considerando o cenário corporativo mais comum
 - não invente processos internos que não foram informados
