@@ -77,7 +77,7 @@ genai.configure(api_key=api_key)
 # ============================================================
 # CONFIGURAÇÕES DO APP
 # ============================================================
-CAMINHO_ARQUIVO = "documentos/PO-250.txt"
+CAMINHO_ARQUIVO = "PO-250.txt"
 MODELO_GEMINI = "gemini-1.5-flash"
 
 
