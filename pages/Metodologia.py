@@ -2,6 +2,7 @@ import os
 import streamlit as st
 import google.generativeai as genai
 
+# LangChain (versões novas)
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
@@ -14,6 +15,7 @@ from langchain_google_genai import (
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableParallel, RunnablePassthrough
 
+
 # ============================================================
 # CONFIGURAÇÃO GEMINI
 # ============================================================
@@ -22,45 +24,66 @@ MODEL_NAME = "gemini-1.5-flash"
 
 
 # ============================================================
-# FUNÇÃO COM CACHE PARA CARREGAR O PDF E CRIAR BASE VETORIAL
+# FUNÇÃO COM CACHE PARA CARREGAR PDF E MONTAR O RAG
 # ============================================================
 @st.cache_resource
-def carregar_rag():
+def montar_rag():
+
     pdf_path = "PO-250.pdf"
 
     if not os.path.exists(pdf_path):
         st.error(f"Arquivo não encontrado: {pdf_path}")
         return None
 
+    # 1. Carregar PDF
     loader = PyPDFLoader(pdf_path)
-    docs_raw = loader.load()
+    documentos = loader.load()
 
-    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
-    docs = splitter.split_documents(docs_raw)
+    # 2. Separar em chunks
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,
+        chunk_overlap=150
+    )
+    docs = splitter.split_documents(documentos)
 
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+    # 3. Embeddings corretos do Google
+    embeddings = GoogleGenerativeAIEmbeddings(
+        model="models/text-embedding-004"
+    )
 
-    vectorstore = Chroma.from_documents(docs, embeddings)
+    # 4. Criar base vetorial
+    vectorstore = Chroma.from_documents(docs, embedding=embeddings)
     retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
 
-    llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=0.2)
+    # 5. Modelo Gemini
+    llm = ChatGoogleGenerativeAI(
+        model=MODEL_NAME,
+        temperature=0.2
+    )
 
+    # 6. Prompt moderno
     prompt = ChatPromptTemplate.from_template(
         """
-        Use o contexto abaixo para responder a pergunta.
+        Você é um assistente especialista.
+        Use APENAS as informações do contexto abaixo para responder.
 
-        Contexto:
+        CONTEXTO:
         {context}
 
-        Pergunta:
+        PERGUNTA DO USUÁRIO:
         {question}
         """
     )
 
-    chain = RunnableParallel(
-        context=retriever,
-        question=RunnablePassthrough()
-    ) | prompt | llm
+    # 7. Construção do pipeline RAG oficial (versão moderna)
+    chain = (
+        RunnableParallel(
+            context=retriever,
+            question=RunnablePassthrough()
+        )
+        | prompt
+        | llm
+    )
 
     return chain
 
@@ -68,17 +91,18 @@ def carregar_rag():
 # ============================================================
 # INTERFACE STREAMLIT
 # ============================================================
-st.title("📘 Chatbot RAG + Gemini – Metodologia Atualizada")
-st.write("Pergunte algo sobre o PDF carregado.")
+st.title("📘 Chatbot de Metodologia — RAG + Gemini")
+st.write("Faça perguntas sobre o conteúdo do PDF carregado.")
 
-chain = carregar_rag()
+chain = montar_rag()
 
 if chain is None:
     st.stop()
 
-user_input = st.text_input("Digite sua pergunta:")
+# Entrada do usuário
+pergunta = st.text_input("Digite sua pergunta:")
 
-if user_input:
-    resposta = chain.invoke(user_input)
+if pergunta:
+    resposta = chain.invoke(pergunta)
     st.write("### 🤖 Resposta:")
     st.write(resposta.content)
