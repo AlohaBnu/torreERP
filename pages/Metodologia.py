@@ -1,6 +1,6 @@
 import os
 import google.generativeai as genai
-from langchain.document_loaders import PyPDFLoader
+from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import Chroma
 from langchain.embeddings import GoogleGenerativeAIEmbeddings

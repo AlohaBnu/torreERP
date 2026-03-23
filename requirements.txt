@@ -21,3 +21,5 @@ pypdf
 google-generativeai
 langchain-google-genai
 chromadb
+langchain-community
+pypdf
