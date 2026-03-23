@@ -31,6 +31,7 @@ langchain-text-splitters
 # PDFs
 pypdf
 pdfplumber
+pymupdf
 
 # Variáveis de ambiente
 python-dotenv
