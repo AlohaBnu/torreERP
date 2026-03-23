@@ -17,7 +17,7 @@ st.set_page_config(
 )
 
 st.title("📄 Chatbot PO-250")
-st.caption("Consulta rápida ao documento com busca por trechos relevantes e resposta via Gemini.")
+st.caption("Consulta inteligente ao documento PO-250 com memória, fontes e trechos relevantes.")
 
 
 # ============================================================
@@ -44,32 +44,27 @@ st.markdown("""
     color: #6b7280;
     font-size: 0.9rem;
 }
+.chat-title {
+    font-weight: 600;
+    margin-bottom: 8px;
+}
 </style>
 """, unsafe_allow_html=True)
 
 
 # ============================================================
-# CARREGAMENTO DE VARIÁVEIS
+# VARIÁVEIS DE AMBIENTE
 # ============================================================
 load_dotenv()
 
-CAMINHO_ARQUIVO = "PO-250.txt"
-MODELOS_CANDIDATOS = [
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
-    "gemini-1.5-pro",
-]
+CAMINHO_ARQUIVO = "documentos/PO-250.txt"
+MODELO_GEMINI = "gemini-2.5-flash"
 
 
 # ============================================================
-# CHAVE DA API
+# CHAVE GEMINI
 # ============================================================
 def obter_gemini_api_key() -> Optional[str]:
-    """
-    Busca a chave do Gemini na seguinte ordem:
-    1. st.secrets
-    2. variável de ambiente (.env/local)
-    """
     try:
         if "GEMINI_API_KEY" in st.secrets:
             return st.secrets["GEMINI_API_KEY"]
@@ -93,7 +88,7 @@ except Exception as e:
 
 
 # ============================================================
-# FUNÇÕES DE LEITURA E INDEXAÇÃO
+# FUNÇÕES DE LEITURA
 # ============================================================
 @st.cache_data(show_spinner=False)
 def carregar_linhas(caminho_arquivo: str) -> Optional[List[str]]:
@@ -106,13 +101,11 @@ def carregar_linhas(caminho_arquivo: str) -> Optional[List[str]]:
 
 @st.cache_data(show_spinner=False)
 def criar_blocos(linhas: List[str], linhas_por_bloco: int = 120) -> List[Dict]:
-    """
-    Divide o documento em blocos de linhas para acelerar a busca.
-    """
     blocos = []
 
     for i in range(0, len(linhas), linhas_por_bloco):
         trecho = "".join(linhas[i:i + linhas_por_bloco]).strip()
+
         if trecho:
             blocos.append({
                 "inicio": i + 1,
@@ -131,9 +124,6 @@ def normalizar_texto(texto: str) -> str:
 
 
 def buscar_blocos_relevantes(pergunta: str, blocos: List[Dict], top_k: int = 4) -> List[Dict]:
-    """
-    Busca simples por relevância lexical.
-    """
     termos = [t for t in normalizar_texto(pergunta).split() if len(t) > 2]
     ranking = []
 
@@ -148,6 +138,7 @@ def buscar_blocos_relevantes(pergunta: str, blocos: List[Dict], top_k: int = 4) 
             ranking.append((score, bloco))
 
     ranking.sort(key=lambda x: x[0], reverse=True)
+
     melhores = [item[1] for item in ranking[:top_k]]
 
     if not melhores:
@@ -172,59 +163,40 @@ def resumir_historico(historico: List[str], limite: int = 6) -> str:
 
 
 # ============================================================
-# FUNÇÕES GEMINI
+# RESPOSTA IA
 # ============================================================
-def gerar_prompt(pergunta: str, contexto: str, historico: str) -> str:
-    return f"""
-Você é um assistente que responde EXCLUSIVAMENTE com base nos trechos do documento PO-250.
+def gerar_resposta_po250(pergunta: str, contexto: str, historico: str) -> str:
+    model = genai.GenerativeModel(MODELO_GEMINI)
 
-Regras obrigatórias:
-1. Não invente informações.
-2. Responda apenas com base nos trechos recebidos.
-3. Se a resposta não estiver clara, diga exatamente:
-   "Não encontrei essa informação claramente no documento PO-250."
-4. Seja claro, objetivo e útil.
-5. Sempre que possível, cite as linhas de onde a resposta foi tirada.
+    prompt = f"""
+Você é especialista sênior em implantação de ERP e documentação funcional.
 
-Histórico recente da conversa:
+Responda com base EXCLUSIVAMENTE nos trechos recebidos do documento PO-250.
+
+REGRAS:
+- Responder apenas com base no conteúdo enviado
+- Não inventar informações
+- Se a resposta não estiver clara, responder exatamente:
+  "Não encontrei essa informação claramente no documento PO-250."
+- Linguagem objetiva, clara e profissional
+- Sempre citar as linhas de onde a resposta foi tirada, quando possível
+- Se houver passo a passo no documento, apresentar em ordem
+- Se houver regra, condição ou parâmetro técnico, destacar isso claramente
+- Não usar emojis
+- Não usar markdown em excesso
+- Não mencionar que foi gerado por IA
+
+HISTÓRICO RECENTE:
 {historico if historico else "Sem histórico anterior."}
 
-Trechos relevantes do documento:
+TRECHOS RELEVANTES DO DOCUMENTO:
 {contexto}
 
-Pergunta do usuário:
+PERGUNTA:
 {pergunta}
-""".strip()
-
-
-def perguntar_gemini(pergunta: str, contexto: str, historico: str) -> str:
-    """
-    Tenta modelos em sequência para evitar NotFound/modelo indisponível.
-    """
-    prompt = gerar_prompt(pergunta, contexto, historico)
-    erros = []
-
-    for nome_modelo in MODELOS_CANDIDATOS:
-        try:
-            model = genai.GenerativeModel(nome_modelo)
-            response = model.generate_content(prompt)
-
-            texto = getattr(response, "text", None)
-            if texto and str(texto).strip():
-                return str(texto).strip()
-
-            erros.append(f"{nome_modelo}: resposta vazia")
-        except Exception as e:
-            erros.append(f"{nome_modelo}: {e}")
-
-    return (
-        "Não foi possível gerar resposta no momento.\n\n"
-        "Verifique:\n"
-        "- se a chave do Gemini está correta\n"
-        "- se o projeto tem acesso aos modelos\n"
-        "- se há restrição de modelo/região\n\n"
-        "Detalhes técnicos:\n" + "\n".join(erros)
-    )
+"""
+    response = model.generate_content(prompt)
+    return response.text.strip() if hasattr(response, "text") and response.text else "Não foi possível gerar resposta."
 
 
 def limpar_conversa():
@@ -245,7 +217,7 @@ if linhas is None:
 
 
 # ============================================================
-# ESTADO DA SESSÃO
+# SESSION STATE
 # ============================================================
 if "mensagens" not in st.session_state:
     st.session_state.mensagens = []
@@ -298,7 +270,7 @@ with st.sidebar:
 # ============================================================
 # LAYOUT PRINCIPAL
 # ============================================================
-col1, col2 = st.columns([2.3, 1])
+col1, col2 = st.columns([2.4, 1])
 
 with col1:
     st.subheader("Conversa")
@@ -319,7 +291,7 @@ with col1:
             st.markdown(pergunta)
 
         with st.chat_message("assistant"):
-            with st.spinner("Buscando os trechos mais relevantes..."):
+            with st.spinner("Analisando documento..."):
                 try:
                     fontes = buscar_blocos_relevantes(
                         pergunta=pergunta,
@@ -328,15 +300,19 @@ with col1:
                     )
 
                     contexto = montar_contexto(fontes)
-                    historico_resumido = resumir_historico(st.session_state.historico, limite=6)
+                    historico_resumido = resumir_historico(
+                        st.session_state.historico,
+                        limite=6
+                    )
 
-                    resposta = perguntar_gemini(
+                    resposta = gerar_resposta_po250(
                         pergunta=pergunta,
                         contexto=contexto,
                         historico=historico_resumido
                     )
+
                 except Exception as e:
-                    resposta = f"Erro ao processar a pergunta: {e}"
+                    resposta = f"Erro ao gerar resposta: {e}"
                     fontes = []
 
                 st.markdown(resposta)
