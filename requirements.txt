@@ -1,11 +1,3 @@
 streamlit
 pymupdf
-langchain
-langchain-community
-sentence-transformers
-faiss-cpu
 google-generativeai
-torch
-transformers
-scikit-learn
-numpy
