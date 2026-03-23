@@ -26,6 +26,7 @@ langchain-google-genai
 chromadb
 faiss-cpu
 sentence-transformers
+langchain-text-splitters
 
 # PDFs
 pypdf
