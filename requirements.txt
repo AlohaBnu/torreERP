@@ -1,25 +1,35 @@
+# Interface e visualização
 streamlit
+streamlit-option-menu
+plotly
+matplotlib
+
+# Banco de dados
+mysql-connector-python
+sqlalchemy
+
+# Dados e planilhas
 pandas
 openpyxl
-plotly
-mysql-connector-python
-streamlit-option-menu
+numpy
+
+# IA e LLMs gerais
 openai
 google-generativeai
-python-dotenv
-sqlalchemy
-matplotlib
-gpt4all
-pdfplumber
-sentence-transformers
-faiss-cpu
-numpy
 transformers
+gpt4all
+
+# RAG e IA com LangChain
 langchain
 langchain-community
-pypdf
-google-generativeai
 langchain-google-genai
 chromadb
-langchain-community
+faiss-cpu
+sentence-transformers
+
+# PDFs
 pypdf
+pdfplumber
+
+# Variáveis de ambiente
+python-dotenv
