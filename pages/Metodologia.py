@@ -57,7 +57,7 @@ st.markdown("""
 # ============================================================
 load_dotenv()
 
-CAMINHO_ARQUIVO = "documentos/PO-250.txt"
+CAMINHO_ARQUIVO = "PO-250.txt"
 MODELO_GEMINI = "gemini-2.5-flash"
 
 
