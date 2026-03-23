@@ -1,11 +1,18 @@
 import os
 import streamlit as st
 import google.generativeai as genai
+
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
-from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
-from langchain.chains import RetrievalQA
+
+from langchain_google_genai import (
+    GoogleGenerativeAIEmbeddings,
+    ChatGoogleGenerativeAI
+)
+
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnableParallel, RunnablePassthrough
 
 # ============================================================
 # CONFIGURAÇÃO GEMINI
@@ -15,68 +22,63 @@ MODEL_NAME = "gemini-1.5-flash"
 
 
 # ============================================================
-# FUNÇÃO PARA CARREGAR E PROCESSAR O PDF (COM CACHE)
+# FUNÇÃO COM CACHE PARA CARREGAR O PDF E CRIAR BASE VETORIAL
 # ============================================================
 @st.cache_resource
-def carregar_base_vetorial():
+def carregar_rag():
     pdf_path = "PO-250.pdf"
 
     if not os.path.exists(pdf_path):
-        st.error(f"Arquivo PDF não encontrado: {pdf_path}")
-        return None, None
+        st.error(f"Arquivo não encontrado: {pdf_path}")
+        return None
 
     loader = PyPDFLoader(pdf_path)
-    documents = loader.load()
+    docs_raw = loader.load()
 
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1200,
-        chunk_overlap=150
-    )
-
-    docs = text_splitter.split_documents(documents)
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
+    docs = splitter.split_documents(docs_raw)
 
     embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
 
-    vectordb = Chroma.from_documents(docs, embeddings)
-    retriever = vectordb.as_retriever(search_kwargs={"k": 4})
+    vectorstore = Chroma.from_documents(docs, embeddings)
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
 
-    return retriever, documents
+    llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=0.2)
 
+    prompt = ChatPromptTemplate.from_template(
+        """
+        Use o contexto abaixo para responder a pergunta.
 
-# ============================================================
-# CONFIGURA O MODELO DE RESPOSTA
-# ============================================================
-@st.cache_resource
-def criar_chain(retriever):
-    llm = ChatGoogleGenerativeAI(
-        model=MODEL_NAME,
-        temperature=0.3
+        Contexto:
+        {context}
+
+        Pergunta:
+        {question}
+        """
     )
 
-    return RetrievalQA.from_chain_type(
-        llm=llm,
-        retriever=retriever,
-        chain_type="stuff"
-    )
+    chain = RunnableParallel(
+        context=retriever,
+        question=RunnablePassthrough()
+    ) | prompt | llm
+
+    return chain
 
 
 # ============================================================
 # INTERFACE STREAMLIT
 # ============================================================
-st.title("📘 Chatbot RAG + Gemini – Metodologia")
-st.write("Faça perguntas sobre o conteúdo do PDF carregado.")
+st.title("📘 Chatbot RAG + Gemini – Metodologia Atualizada")
+st.write("Pergunte algo sobre o PDF carregado.")
 
-retriever, documento_raw = carregar_base_vetorial()
+chain = carregar_rag()
 
-if retriever is None:
+if chain is None:
     st.stop()
 
-qa_chain = criar_chain(retriever)
+user_input = st.text_input("Digite sua pergunta:")
 
-# Entrada do usuário
-pergunta = st.text_input("Sua pergunta:")
-
-if pergunta:
-    resposta = qa_chain.run(pergunta)
+if user_input:
+    resposta = chain.invoke(user_input)
     st.write("### 🤖 Resposta:")
-    st.write(resposta)
+    st.write(resposta.content)
