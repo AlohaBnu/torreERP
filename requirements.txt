@@ -15,3 +15,9 @@ sentence-transformers
 faiss-cpu
 numpy
 transformers
+langchain
+langchain-community
+pypdf
+google-generativeai
+langchain-google-genai
+chromadb
