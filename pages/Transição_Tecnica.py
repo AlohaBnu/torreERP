@@ -1,322 +1,478 @@
-import streamlit as st
-import mysql.connector as mc
-import pandas as pd
-import google.generativeai as genai
 import os
-from dotenv import load_dotenv
+import tempfile
+from typing import List, Tuple
 
-load_dotenv()
+import fitz  # PyMuPDF
+import streamlit as st
+import google.generativeai as genai
 
-# ============================================================
-# CONFIGURAÇÃO GEMINI
-# ============================================================
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.schema import Document
+from langchain.memory import ConversationBufferMemory
+from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import HuggingFaceEmbeddings
 
-# ============================================================
-# CONFIGURAÇÃO STREAMLIT
-# ============================================================
-st.set_page_config(page_title="Resumo Inteligente de Agenda", layout="wide")
-
-# ============================================================
-# BANCO
-# ============================================================
-DB_CONFIG = {
-    "host": "172.31.20.168",
-    "user": "fast",
-    "password": "kK3F6737IER3d-sf*",
-    "database": "fast",
-}
-
-def get_connection():
-    return mc.connect(**DB_CONFIG)
 
 # ============================================================
-# BUSCAR PROJETOS ERP
+# CONFIGURAÇÃO DA PÁGINA
 # ============================================================
-def buscar_projetos():
-    conn = get_connection()
-    cursor = conn.cursor(dictionary=True)
-    sql = """
-    SELECT idProjeto,nome 
-    FROM projeto 
-    WHERE idProduto = 1 
-      AND idProdutoCronograma = 38 
-      AND nome LIKE '%ERP%'
-    """
-    cursor.execute(sql)
-    dados = cursor.fetchall()
-    conn.close()
-    return dados
-
-# ============================================================
-# BUSCAR ATIVIDADES
-# ============================================================
-def buscar_atividades(idProjeto):
-    conn = get_connection()
-    sql = """
-    SELECT 
-        p.nome,
-        ap.datAtividade,
-        ap.atividade
-    FROM projeto p
-    INNER JOIN atividadesprojeto ap 
-        ON ap.idProjeto = p.idProjeto
-    WHERE 
-        p.idProduto = 1 
-        AND p.idProdutoCronograma = 38 
-        AND p.nome LIKE '%ERP%'
-        AND p.idProjeto = %s
-        AND ap.melhoriaRisco = 3
-    ORDER BY 
-        ap.datAtividade DESC
-    """
-    df = pd.read_sql(sql, conn, params=(idProjeto,))
-    conn.close()
-    return df
-
-# ============================================================
-# INSERT ATIVIDADE
-# ============================================================
-def inserir_atividade(idProjeto, resumo):
-    import mysql.connector
-    try:
-        conn = get_connection()
-        cursor = conn.cursor()
-
-        # =====================================================
-        # 1 - INSERE ATIVIDADE NO FEED
-        # =====================================================
-        sql_feed = """
-        INSERT INTO fast.atividadesprojeto
-        (
-            idProjeto,
-            idUsuario,
-            datAtividade,
-            atividade,
-            melhoriaRisco,
-            idMensagem,
-            nivel,
-            previsao,
-            conclusao
-        )
-        VALUES
-        (
-            %s,
-            %s,
-            NOW(),
-            %s,
-            %s,
-            NULL,
-            %s,
-            NULL,
-            NULL
-        )
-        """
-        valores_feed = (idProjeto, 703, resumo, 3, 1)
-        cursor.execute(sql_feed, valores_feed)
-
-        # =====================================================
-        # 2 - BUSCA PRÓXIMO ID DA METODOLOGIA
-        # =====================================================
-        cursor.execute("""
-        SELECT IFNULL(MAX(idAtividadesMetodologiaProjeto),0)+1
-        FROM fast.atividadesmetodologiaprojeto
-        """)
-        novo_id = cursor.fetchone()[0]
-
-        # =====================================================
-        # 3 - INSERE NA METODOLOGIA DO PROJETO
-        # =====================================================
-        sql_metodologia = """
-        INSERT INTO fast.atividadesmetodologiaprojeto
-        (
-            idAtividadesMetodologiaProjeto,
-            idProjeto,
-            idUsuario,
-            idAtividadesMetodologia,
-            datMarcacao,
-            tipo
-        )
-        VALUES
-        (
-            %s,
-            %s,
-            %s,
-            %s,
-            NOW(),
-            %s
-        )
-        """
-        valores_met = (novo_id, idProjeto, 703, 586, 0)
-        cursor.execute(sql_metodologia, valores_met)
-
-        # =====================================================
-        # COMMIT FINAL (GRAVA OS DOIS)
-        # =====================================================
-        conn.commit()
-
-        cursor.close()
-        conn.close()
-        return True
-
-    except mysql.connector.Error as err:
-        conn.rollback()
-        st.error(f"Erro MySQL: {err}")
-        return False
-
-# ============================================================
-# RESUMO IA
-# ============================================================
-def gerar_resumo(transcricao):
-    model = genai.GenerativeModel("gemini-2.5-flash")
-    prompt = f"""
-Você é especialista sênior em implantação de ERP.
-Gere um resumo executivo estruturado em HTML com padrão corporativo.
-
-REGRAS:
-- Usar <b> para títulos
-- Usar <br> para quebra de linha
-- Usar <hr> como divisor elegante
-- Linguagem objetiva, clara e executiva
-- Não repetir informações
-- Não usar emojis
-- Não usar markdown
-- Não colocar explicações extras
-- Não mencionar que foi gerado por IA
-
-FORMATO EXATO:
-<b style="font-size:16px;">AGENDA TÉCNICA – PROJETO ERP</b>
-<hr>
-<b>1. Resumo Geral</b><br>
-Texto estruturado em até 5 linhas.
-<br><br>
-<b>2. Momento do Cliente</b><br>
-Análise objetiva do cenário atual.
-<br><br>
-<b>3. Situação Comercial</b><br>
-Status contratual / financeiro se houver.
-<br><br>
-<b>4. Riscos Identificados</b><br>
-Listar riscos usando:
-- Item<br>
-- Item<br>
-<br><br>
-<b>5. Próximos Passos</b><br>
-Listar ações objetivas:
-- Ação + responsável + prazo (se houver)<br>
-Transcrição:
-{transcricao}
-"""
-    response = model.generate_content(prompt)
-    return response.text
-
-# ============================================================
-# TELA PRINCIPAL
-# ============================================================
-st.title("📝 Transição Técnica ERP")
-
-# SESSION STATE
-if "resumo_gerado" not in st.session_state:
-    st.session_state.resumo_gerado = ""
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
-if "chat_open" not in st.session_state:
-    st.session_state.chat_open = False
-
-# PROJETOS
-projetos = buscar_projetos()
-mapa = {p["nome"]: p["idProjeto"] for p in projetos}
-projeto_opcoes = ["Selecionar Projeto"] + list(mapa.keys())
-projeto_nome = st.selectbox("Selecione o Projeto ERP", projeto_opcoes)
-idProjeto = mapa.get(projeto_nome, None)
-
-# RESUMO DE REUNIÃO
-st.subheader("📄 Cole a transcrição da reunião")
-texto = st.text_area("Cole aqui o conteúdo da reunião", height=300)
-
-if st.button("🧠 Gerar Resumo com IA"):
-    if idProjeto is None:
-        st.warning("Selecione um projeto antes de gerar o resumo.")
-    elif texto.strip() == "":
-        st.warning("Cole algum conteúdo antes de processar.")
-    else:
-        with st.spinner("Processando reunião com IA..."):
-            resumo = gerar_resumo(texto)
-            st.session_state.resumo_gerado = resumo
-
-if st.session_state.resumo_gerado != "":
-    st.subheader("📌 Resumo Gerado")
-    st.text_area("", st.session_state.resumo_gerado, height=350)
-    if st.button("📥 Publicar no Feed do Projeto"):
-        if inserir_atividade(idProjeto, st.session_state.resumo_gerado):
-            st.success("Resumo publicado!")
-            st.session_state.resumo_gerado = ""
-        else:
-            st.error("Erro ao inserir no banco!")
-
-# ===================================
-# BOTÃO DE CHAT (ROBOZINHO)
-# ===================================
-st.markdown(
-    """
-    <style>
-    .chatbot-button {
-        position: fixed;
-        bottom: 25px;
-        right: 25px;
-        background-color: #4CAF50;
-        color: white;
-        border-radius: 50%;
-        font-size: 30px;
-        width: 60px;
-        height: 60px;
-        text-align: center;
-        cursor: pointer;
-        box-shadow: 2px 2px 10px gray;
-        z-index:999;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
+st.set_page_config(
+    page_title="Chat com PDF - Gemini",
+    page_icon="📄",
+    layout="wide"
 )
 
-if st.button("🤖", key="open_chat"):
-    st.session_state.chat_open = not st.session_state.chat_open
+st.title("📄 Chatbot com PDF")
+st.caption("Perguntas e respostas sobre o PDF, com memória, páginas e fontes da resposta.")
 
-# ===================================
-# CHAT LATERAL SIMULADO
-# ===================================
-if st.session_state.chat_open and idProjeto is not None:
-    with st.expander("💬 Chat do Projeto ERP", expanded=True):
-        pergunta = st.text_input("Faça uma pergunta ao projeto")
-        if st.button("Enviar Pergunta", key="send_chat") and pergunta.strip() != "":
-            df_atividades = buscar_atividades(idProjeto)
-            contexto = "\n".join(df_atividades["atividade"].tolist())
-            prompt_chat = f"""
-Você é um assistente especialista em implantação de ERP.
-Use as atividades do projeto abaixo como contexto para responder a pergunta do usuário.
 
-Contexto do Projeto:
-{contexto}
+# ============================================================
+# ESTILO
+# ============================================================
+st.markdown("""
+<style>
+.block-container {
+    padding-top: 1.2rem;
+    padding-bottom: 1rem;
+}
+[data-testid="stSidebar"] {
+    min-width: 330px;
+    max-width: 330px;
+}
+.source-box {
+    background: #f7f8fc;
+    border: 1px solid #dbe2f0;
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 10px;
+}
+.small-muted {
+    color: #6b7280;
+    font-size: 0.9rem;
+}
+.chat-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+</style>
+""", unsafe_allow_html=True)
 
-Pergunta:
+
+# ============================================================
+# FUNÇÕES AUXILIARES
+# ============================================================
+def obter_gemini_key() -> str:
+    """
+    Busca a chave GEMINI_API_KEY do ambiente.
+    """
+    return os.getenv("GEMINI_API_KEY")
+
+
+def configurar_gemini():
+    """
+    Configura o Gemini com a chave de ambiente.
+    """
+    api_key = obter_gemini_key()
+    if not api_key:
+        raise ValueError("A variável de ambiente GEMINI_API_KEY não foi definida.")
+    genai.configure(api_key=api_key)
+
+
+def extrair_documentos_pdf(uploaded_file) -> List[Document]:
+    """
+    Extrai o texto do PDF e cria documentos por página.
+    """
+    documentos = []
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+        tmp_file.write(uploaded_file.getvalue())
+        temp_path = tmp_file.name
+
+    try:
+        pdf = fitz.open(temp_path)
+
+        for numero_pagina, pagina in enumerate(pdf, start=1):
+            texto = pagina.get_text("text").strip()
+
+            if texto:
+                documentos.append(
+                    Document(
+                        page_content=texto,
+                        metadata={
+                            "arquivo": uploaded_file.name,
+                            "pagina": numero_pagina
+                        }
+                    )
+                )
+
+        pdf.close()
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
+    return documentos
+
+
+def dividir_documentos(documentos: List[Document]) -> List[Document]:
+    """
+    Divide em chunks menores preservando metadados.
+    """
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1200,
+        chunk_overlap=180,
+        separators=["\n\n", "\n", ".", " ", ""]
+    )
+    return splitter.split_documents(documentos)
+
+
+@st.cache_resource(show_spinner=False)
+def carregar_embeddings():
+    """
+    Carrega modelo local de embeddings.
+    """
+    return HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    )
+
+
+def criar_vectorstore(chunks: List[Document]):
+    """
+    Cria o índice vetorial FAISS.
+    """
+    embeddings = carregar_embeddings()
+    return FAISS.from_documents(chunks, embeddings)
+
+
+def inicializar_memoria():
+    """
+    Inicializa memória de conversa.
+    """
+    return ConversationBufferMemory(
+        memory_key="chat_history",
+        return_messages=True,
+        output_key="answer"
+    )
+
+
+def formatar_historico_memoria(memoria) -> str:
+    """
+    Converte memória em texto para o prompt.
+    """
+    mensagens = memoria.chat_memory.messages
+    linhas = []
+
+    for msg in mensagens:
+        nome_classe = msg.__class__.__name__.lower()
+        if "human" in nome_classe:
+            linhas.append(f"Usuário: {msg.content}")
+        elif "ai" in nome_classe:
+            linhas.append(f"Assistente: {msg.content}")
+
+    return "\n".join(linhas).strip()
+
+
+def buscar_contexto(retriever, pergunta: str, memoria, k: int = 4) -> List[Document]:
+    """
+    Busca contexto relevante usando a pergunta + histórico recente.
+    """
+    historico = formatar_historico_memoria(memoria)
+
+    consulta = pergunta
+    if historico:
+        consulta = f"""
+Considere o histórico da conversa abaixo para entender o contexto.
+
+Histórico:
+{historico}
+
+Pergunta atual:
+{pergunta}
+""".strip()
+
+    docs = retriever.get_relevant_documents(consulta)
+    return docs[:k]
+
+
+def montar_prompt(pergunta: str, documentos_contexto: List[Document], memoria) -> str:
+    """
+    Monta o prompt final para o Gemini.
+    """
+    historico = formatar_historico_memoria(memoria)
+
+    contexto_blocos = []
+    for i, doc in enumerate(documentos_contexto, start=1):
+        arquivo = doc.metadata.get("arquivo", "arquivo.pdf")
+        pagina = doc.metadata.get("pagina", "?")
+        trecho = doc.page_content.strip()
+
+        contexto_blocos.append(
+            f"[Fonte {i}] Arquivo: {arquivo} | Página: {pagina}\n{trecho}"
+        )
+
+    contexto_final = "\n\n".join(contexto_blocos)
+
+    prompt = f"""
+Você é um assistente que responde perguntas com base EXCLUSIVAMENTE no conteúdo do PDF enviado.
+
+Regras obrigatórias:
+1. Responda apenas com base no contexto fornecido.
+2. Se a resposta não estiver no material, responda exatamente:
+   "Não encontrei essa informação claramente no PDF."
+3. Seja claro, objetivo e organizado.
+4. Sempre que possível, cite as páginas usadas.
+5. Considere o histórico da conversa para manter continuidade.
+6. Não invente informações.
+
+Histórico da conversa:
+{historico if historico else "Sem histórico anterior."}
+
+Contexto do PDF:
+{contexto_final}
+
+Pergunta do usuário:
 {pergunta}
 
-Responda de forma clara, objetiva e profissional, sem explicações extras.
-"""
-            model = genai.GenerativeModel("gemini-2.5-flash")
-            resposta = model.generate_content(prompt_chat).text
-            st.session_state.chat_history.append(("Usuário", pergunta))
-            st.session_state.chat_history.append(("Bot", resposta))
+Resposta:
+""".strip()
 
-        for remetente, mensagem in st.session_state.chat_history:
-            if remetente == "Usuário":
-                st.markdown(f"**Você:** {mensagem}")
+    return prompt
+
+
+def gerar_resposta_gemini(prompt: str) -> str:
+    """
+    Gera resposta usando Gemini.
+    """
+    configurar_gemini()
+    model = genai.GenerativeModel("gemini-1.5-flash")
+    response = model.generate_content(prompt)
+
+    if hasattr(response, "text") and response.text:
+        return response.text.strip()
+
+    return "Não foi possível gerar uma resposta no momento."
+
+
+def deduplicar_fontes(documentos: List[Document]) -> List[Tuple[str, int, str]]:
+    """
+    Remove duplicidade das fontes para exibição.
+    """
+    vistos = set()
+    fontes_unicas = []
+
+    for doc in documentos:
+        arquivo = doc.metadata.get("arquivo", "arquivo.pdf")
+        pagina = doc.metadata.get("pagina", "?")
+        trecho = doc.page_content.strip().replace("\n", " ")
+
+        chave = (arquivo, pagina, trecho[:180])
+
+        if chave not in vistos:
+            vistos.add(chave)
+            fontes_unicas.append((arquivo, pagina, trecho))
+
+    return fontes_unicas
+
+
+def resetar_chat():
+    """
+    Limpa o estado da sessão.
+    """
+    for chave in [
+        "messages",
+        "vectorstore",
+        "retriever",
+        "memory",
+        "pdf_processado",
+        "nome_arquivo",
+        "fontes_ultima_resposta"
+    ]:
+        if chave in st.session_state:
+            del st.session_state[chave]
+
+
+# ============================================================
+# SIDEBAR
+# ============================================================
+with st.sidebar:
+    st.header("Configuração")
+
+    uploaded_file = st.file_uploader(
+        "Envie um PDF",
+        type=["pdf"]
+    )
+
+    k_busca = st.slider(
+        "Quantidade de trechos buscados",
+        min_value=2,
+        max_value=8,
+        value=4,
+        step=1
+    )
+
+    mostrar_fontes = st.toggle("Mostrar fontes utilizadas", value=True)
+
+    st.divider()
+
+    if st.button("🗑️ Limpar conversa", use_container_width=True):
+        resetar_chat()
+        st.rerun()
+
+    st.divider()
+    st.markdown("""
+**Como funciona**
+
+1. Você envia um PDF  
+2. O sistema extrai o texto  
+3. Divide em trechos  
+4. Busca os mais relevantes  
+5. O Gemini responde com base no documento
+""")
+
+
+# ============================================================
+# ESTADO INICIAL
+# ============================================================
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+if "fontes_ultima_resposta" not in st.session_state:
+    st.session_state.fontes_ultima_resposta = []
+
+if "pdf_processado" not in st.session_state:
+    st.session_state.pdf_processado = False
+
+
+# ============================================================
+# PROCESSAMENTO DO PDF
+# ============================================================
+if uploaded_file and not st.session_state.get("pdf_processado", False):
+    api_key = obter_gemini_key()
+
+    if not api_key:
+        st.error("Defina a variável de ambiente GEMINI_API_KEY antes de continuar.")
+        st.stop()
+
+    with st.spinner("Lendo e indexando o PDF..."):
+        documentos = extrair_documentos_pdf(uploaded_file)
+
+        if not documentos:
+            st.warning("Não foi possível extrair texto deste PDF.")
+            st.stop()
+
+        chunks = dividir_documentos(documentos)
+        vectorstore = criar_vectorstore(chunks)
+        retriever = vectorstore.as_retriever(search_kwargs={"k": k_busca})
+        memory = inicializar_memoria()
+
+        st.session_state.vectorstore = vectorstore
+        st.session_state.retriever = retriever
+        st.session_state.memory = memory
+        st.session_state.pdf_processado = True
+        st.session_state.nome_arquivo = uploaded_file.name
+        st.session_state.messages = []
+        st.session_state.fontes_ultima_resposta = []
+
+    st.success(f"PDF processado com sucesso: {uploaded_file.name}")
+
+
+# ============================================================
+# INTERFACE PRINCIPAL
+# ============================================================
+if st.session_state.get("pdf_processado", False):
+    col1, col2 = st.columns([2.3, 1])
+
+    with col1:
+        st.subheader("Conversa")
+
+        for msg in st.session_state.messages:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
+
+        pergunta = st.chat_input("Faça uma pergunta sobre o conteúdo do PDF")
+
+        if pergunta:
+            st.session_state.messages.append({
+                "role": "user",
+                "content": pergunta
+            })
+
+            with st.chat_message("user"):
+                st.markdown(pergunta)
+
+            with st.chat_message("assistant"):
+                with st.spinner("Analisando o documento..."):
+                    try:
+                        retriever = st.session_state.retriever
+                        memory = st.session_state.memory
+
+                        docs_relevantes = buscar_contexto(
+                            retriever=retriever,
+                            pergunta=pergunta,
+                            memoria=memory,
+                            k=k_busca
+                        )
+
+                        prompt = montar_prompt(
+                            pergunta=pergunta,
+                            documentos_contexto=docs_relevantes,
+                            memoria=memory
+                        )
+
+                        resposta = gerar_resposta_gemini(prompt)
+
+                        memory.save_context(
+                            {"input": pergunta},
+                            {"answer": resposta}
+                        )
+
+                        st.markdown(resposta)
+
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": resposta
+                        })
+
+                        st.session_state.fontes_ultima_resposta = deduplicar_fontes(docs_relevantes)
+
+                    except Exception as e:
+                        st.error(f"Erro ao gerar resposta: {str(e)}")
+
+    with col2:
+        st.subheader("Informações")
+
+        nome_arquivo = st.session_state.get("nome_arquivo", "PDF")
+        st.info(f"**Arquivo carregado:** {nome_arquivo}")
+
+        st.metric("Mensagens na sessão", len(st.session_state.messages))
+
+        if mostrar_fontes:
+            st.subheader("Fontes da última resposta")
+
+            fontes = st.session_state.get("fontes_ultima_resposta", [])
+
+            if fontes:
+                for idx, (arquivo, pagina, trecho) in enumerate(fontes, start=1):
+                    trecho_curto = trecho[:500] + ("..." if len(trecho) > 500 else "")
+                    st.markdown(
+                        f"""
+                        <div class="source-box">
+                            <strong>Fonte {idx}</strong><br>
+                            <span class="small-muted">Arquivo: {arquivo} | Página: {pagina}</span>
+                            <hr style="margin:8px 0;">
+                            <span>{trecho_curto}</span>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
             else:
-                st.markdown(f"**Bot:** {mensagem}")
+                st.caption("As fontes aparecerão após a primeira resposta.")
+else:
+    st.info("Envie um PDF na barra lateral para começar.")
 
-# HISTÓRICO DE ATIVIDADES
-if idProjeto is not None:
-    st.subheader("📜 Histórico de Atividades do Projeto")
-    df = buscar_atividades(idProjeto)
-    st.dataframe(df, use_container_width=True)
+
+# ============================================================
+# RODAPÉ
+# ============================================================
+st.divider()
+st.caption("Dica: se o PDF for escaneado em imagem, pode ser necessário OCR.")
