@@ -16,7 +16,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("📄 Chatbot PO-250")
+st.title("📄 Metodologia PO-250")
 st.caption("Consulta inteligente ao documento PO-250 com memória, fontes e trechos relevantes.")
 
 
@@ -273,7 +273,7 @@ with st.sidebar:
 col1, col2 = st.columns([2.4, 1])
 
 with col1:
-    st.subheader("Conversa")
+    st.subheader("Como posso te ajudar?")
 
     for msg in st.session_state.mensagens:
         with st.chat_message(msg["role"]):
