@@ -41,7 +41,8 @@ st.markdown(
     Área Responsável: Torre ERP (Rafael Audibert) <br>
     Melhorias: Governança <br> 
     [Clique aqui para abrir o FastProject](https://fastproject.senior.com.br)
-    """
+    """,
+    unsafe_allow_html=True
 )
 
 
@@ -53,6 +54,7 @@ st.markdown(
     🔗 **ZenDesk: Ferramenta de Suporte** <br>
     Área Responsável : Suporte Senior - Produto e IT Services <br>  
     [Clique aqui para abrir o ZenDesk](https://suporte.senior.com.br)
-    """
+    """,
+    unsafe_allow_html=True
 )
 
