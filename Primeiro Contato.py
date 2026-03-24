@@ -37,9 +37,9 @@ st.markdown(
 
 st.markdown(
     """
-    🔗 **Fast Project: Ferramenta para Gestão de Projetos** 
-    Área Responsável: Torre ERP (Rafael Audibert)
-    Melhorias: Governança 
+    🔗 **Fast Project: Ferramenta para Gestão de Projetos**<br>
+    Área Responsável: Torre ERP (Rafael Audibert)<br>
+    Melhorias: Governança<br> 
     [Clique aqui para abrir o FastProject](https://fastproject.senior.com.br)
     """
 )
@@ -50,8 +50,8 @@ st.subheader("📄 Ferramentas de Suporte")
 
 st.markdown(
     """
-    🔗 **ZenDesk: Ferramenta de Suporte**
-    Area Responsável : Suporte Senior - Produto e IT Services  
+    🔗 **ZenDesk: Ferramenta de Suporte**<br>
+    Area Responsável : Suporte Senior - Produto e IT Services<br>  
     [Clique aqui para abrir o ZenDesk](https://suporte.senior.com.br)
     """
 )
