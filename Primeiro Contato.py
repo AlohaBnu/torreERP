@@ -7,7 +7,7 @@ st.title("📊 Portal Torre ERP")
 st.write("Bem-vindo ao portal.")
 st.write("Aqui você encontrará tudo sobre a Torre ERP.")
 
-st.subheader("📄 Principais Documentações")
+st.subheader("📄 Documentações")
 
 # Link clicável e bonito
 st.markdown(
@@ -24,32 +24,33 @@ st.markdown(
     """
 )
 
-st.subheader("📄 Principais Ferramentas")
+st.subheader("📄 Ferramentas para Projetos")
 
 st.markdown(
     """
-    🔗 **ServiceNow: Ferramenta para Recepção de Projetos, Plano de Recursos, Apontamento de Horas**  
+    🔗 **ServiceNow: Ferramenta para Recepção de Projetos, Plano de Recursos, Apontamento de Horas**
+    Área Responsável: Governança
     [Clique aqui para abrir o ServiceNow](https://seniorprod.service-now.com)
     """
 )
 
 st.markdown(
     """
-    🔗 **Fast Project: Ferramenta para Gestão de Projetos**  
+    🔗 **Fast Project: Ferramenta para Gestão de Projetos** 
+    Área Responsável: Torre ERP (Rafael Audibert)
+    Melhorias: Governança 
     [Clique aqui para abrir o FastProject](https://fastproject.senior.com.br)
     """
 )
 
-st.markdown(
-    """
-    🔗 **ZenDesk: Ferramenta de Suporte**  
-    [Clique aqui para abrir o ZenDesk](https://suporte.senior.com.br)
-    """
-)
+
+st.subheader("📄 Ferramentas de Suporte")
+
 
 st.markdown(
     """
-    🔗 **ZenDesk: Ferramenta de Suporte**  
+    🔗 **ZenDesk: Ferramenta de Suporte**
+    Area Responsável : Suporte Senior - Produto e IT Services  
     [Clique aqui para abrir o ZenDesk](https://suporte.senior.com.br)
     """
 )
