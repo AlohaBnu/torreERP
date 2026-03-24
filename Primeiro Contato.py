@@ -29,7 +29,7 @@ st.subheader("📄 Ferramentas para Projetos")
 st.markdown(
     """
     🔗 **ServiceNow: Ferramenta para Recepção de Projetos, Plano de Recursos, Apontamento de Horas** <br>
-    Área Responsável: Governança <br>
+    **Área Responsável**: Governança <br>
     <a href="https://seniorprod.service-now.com">Clique aqui para abrir o ServiceNow</a>
     """,
     unsafe_allow_html=True
@@ -38,8 +38,7 @@ st.markdown(
 st.markdown(
     """
     🔗 **Fast Project: Ferramenta para Gestão de Projetos** <br>
-    Área Responsável: Torre ERP (Rafael Audibert) <br>
-    Melhorias: Governança <br> 
+    **Área Responsável**: Torre ERP (Rafael Audibert) <br>
     [Clique aqui para abrir o FastProject](https://fastproject.senior.com.br)
     """,
     unsafe_allow_html=True
@@ -52,7 +51,7 @@ st.subheader("📄 Ferramentas de Suporte")
 st.markdown(
     """
     🔗 **ZenDesk: Ferramenta de Suporte** <br>
-    Área Responsável : Suporte Senior - Produto e IT Services <br>  
+    **Área Responsável**: Suporte Senior - Produto e IT Services  
     [Clique aqui para abrir o ZenDesk](https://suporte.senior.com.br)
     """,
     unsafe_allow_html=True
