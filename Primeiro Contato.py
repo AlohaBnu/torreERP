@@ -28,10 +28,11 @@ st.subheader("📄 Ferramentas para Projetos")
 
 st.markdown(
     """
-    🔗 **ServiceNow: Ferramenta para Recepção de Projetos, Plano de Recursos, Apontamento de Horas**
-    Área Responsável: Governança
-    [Clique aqui para abrir o ServiceNow](https://seniorprod.service-now.com)
-    """
+    🔗 **ServiceNow: Ferramenta para Recepção de Projetos, Plano de Recursos, Apontamento de Horas** <br><br>
+    Área Responsável: Governança <br><br>
+    <a href="https://seniorprod.service-now.com">Clique aqui para abrir o ServiceNow</a>
+    """,
+    unsafe_allow_html=True
 )
 
 st.markdown(
