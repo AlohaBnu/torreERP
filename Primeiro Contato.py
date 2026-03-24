@@ -5,7 +5,7 @@ st.set_page_config(page_title="Portal Torre ERP", page_icon="📊", layout="cent
 st.title("📊 Portal Torre ERP")
 
 st.write("Bem-vindo ao portal.")
-st.write("Aqui você encontrará tudo sobre a Torre ERP.")
+st.write("Aqui você encontrará tudo sobre a nossa Torre.")
 
 st.subheader("📄 Documentações")
 
