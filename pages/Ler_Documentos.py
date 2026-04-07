@@ -5,57 +5,97 @@ from docx import Document
 import google.generativeai as genai
 import os
 
-# ===== Gemini =====
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+# ================================
+# CONFIGURACAO GEMINI
+# ================================
+API_KEY = os.getenv("GEMINI_API_KEY")
+
+if not API_KEY:
+    st.error("GEMINI_API_KEY nao encontrada nas variaveis de ambiente.")
+    st.stop()
+
+genai.configure(api_key=API_KEY)
+
 MODEL_NAME = "gemini-2.5-flash"
 
+# ================================
+# FUNCAO DE RESUMO
+# ================================
 def gerar_resumo(texto):
     model = genai.GenerativeModel(MODEL_NAME)
-    prompt = f"""
-    Gere um resumo em tópicos claros e objetivos do texto abaixo:
 
-    {texto}
-    """
-    return model.generate_content(prompt).text
+    prompt = (
+        "Leia o texto abaixo e gere um resumo claro e objetivo, "
+        "organizado em topicos, destacando os pontos principais.\n\n"
+        "Texto:\n" + texto
+    )
 
-# ===== Leitura de arquivos =====
+    response = model.generate_content(prompt)
+    return response.text
+
+# ================================
+# FUNCOES DE LEITURA
+# ================================
+def ler_txt(file):
+    return file.read().decode("utf-8", errors="ignore")
+
+def ler_pdf(file):
+    reader = PdfReader(file)
+    texto = ""
+    for page in reader.pages:
+        texto += (page.extract_text() or "") + "\n"
+    return texto
+
+def ler_docx(file):
+    doc = Document(file)
+    return "\n".join(p.text for p in doc.paragraphs)
+
+def ler_excel(file):
+    df = pd.read_excel(file)
+    return df.to_string(index=False)
+
 def extrair_texto(file):
     nome = file.name.lower()
 
     if nome.endswith(".txt"):
-        return file.read().decode("utf-8")
-
+        return ler_txt(file)
     if nome.endswith(".pdf"):
-        reader = PdfReader(file)
-        return "\n".join([p.extract_text() or "" for p in reader.pages])
-
+        return ler_pdf(file)
     if nome.endswith(".docx"):
-        doc = Document(file)
-        return "\n".join(p.text for p in doc.paragraphs)
-
-    if nome.endswith(".xlsx"):
-        df = pd.read_excel(file)
-        return df.to_string(index=False)
+        return ler_docx(file)
+    if nome.endswith(".xlsx") or nome.endswith(".xls"):
+        return ler_excel(file)
 
     return None
 
-# ===== Streamlit =====
-st.title("📄 Leitura e Resumo de Documentos")
+# ================================
+# INTERFACE STREAMLIT
+# ================================
+st.set_page_config(page_title="Leitura de Documentos", layout="wide")
+st.title("Leitura e Resumo de Documentos")
 
-uploaded = st.file_uploader(
-    "Envie um arquivo",
-    type=["txt", "pdf", "docx", "xlsx"]
+uploaded_file = st.file_uploader(
+    "Envie um arquivo (TXT, PDF, Word ou Excel)",
+    type=["txt", "pdf", "docx", "xlsx", "xls"]
 )
 
-if uploaded:
-    texto = extrair_texto(uploaded)
+if uploaded_file:
+    texto_extraido = extrair_texto(uploaded_file)
 
-    if texto:
-        st.text_area("Texto extraído", texto, height=300)
+    if texto_extraido is None:
+        st.error("Formato de arquivo nao suportado.")
+        st.stop()
 
-        if st.button("Resumir"):
-            with st.spinner("Gerando resumo..."):
-                resumo = gerar_resumo(texto)
-            st.markdown("### ✅ Resumo")
-            st.markdown(resumo)
-``
+    st.subheader("Texto extraido")
+    st.text_area(
+        "Conteudo do documento",
+        texto_extraido,
+        height=300
+    )
+
+    if st.button("Gerar resumo"):
+        with st.spinner("Gerando resumo com Gemini..."):
+            resumo = gerar_resumo(texto_extraido)
+
+        st.subheader("Resumo")
+        st.markdown(resumo)
