@@ -158,34 +158,56 @@ if uploaded_file:
     st.dataframe(pd.DataFrame([empresa]), use_container_width=True)
 
     # --------------------------------------------
-    # PARTICIPANTES
+    # DATAFRAMES BASE
     # --------------------------------------------
-    st.subheader("👥 Clientes / Fornecedores (0150)")
     df_part = pd.DataFrame(participantes)
-    st.metric("Total de Participantes", len(df_part))
-    st.dataframe(df_part, use_container_width=True)
+    df_prod = pd.DataFrame(produtos)
+    df_notas = pd.DataFrame(notas)
+    df_itens = pd.DataFrame(itens_nota)
+
+    # --------------------------------------------
+    # SEPARAÇÃO CLIENTES / FORNECEDORES
+    # --------------------------------------------
+    cod_fornecedores = df_notas[df_notas["Operação"] == "Entrada"]["Participante"].unique()
+    df_fornecedores = df_part[df_part["Código"].isin(cod_fornecedores)].copy()
+    df_fornecedores["Tipo"] = "Fornecedor"
+
+    cod_clientes = df_notas[df_notas["Operação"] == "Saída"]["Participante"].unique()
+    df_clientes = df_part[df_part["Código"].isin(cod_clientes)].copy()
+    df_clientes["Tipo"] = "Cliente"
+
+    # --------------------------------------------
+    # CLIENTES
+    # --------------------------------------------
+    st.subheader("👥 Clientes (0150 + C100 Saída)")
+    st.metric("Total de Clientes", len(df_clientes))
+    st.dataframe(df_clientes, use_container_width=True)
+
+    # --------------------------------------------
+    # FORNECEDORES
+    # --------------------------------------------
+    st.subheader("🏭 Fornecedores (0150 + C100 Entrada)")
+    st.metric("Total de Fornecedores", len(df_fornecedores))
+    st.dataframe(df_fornecedores, use_container_width=True)
 
     # --------------------------------------------
     # PRODUTOS
     # --------------------------------------------
     st.subheader("📦 Cadastro de Itens / Produtos (0200)")
-    df_prod = pd.DataFrame(produtos)
     st.metric("Total de Itens", len(df_prod))
     st.dataframe(df_prod, use_container_width=True)
 
-   
     # --------------------------------------------
-    # NOTAS
-    # --------------------------------------------
-    df_notas = pd.DataFrame(notas)
-
     # NOTAS DE ENTRADA
+    # --------------------------------------------
     st.subheader("🧾 Notas Fiscais de Entrada (C100)")
     df_entrada = df_notas[df_notas["Operação"] == "Entrada"]
     st.metric("Total de Notas de Entrada", len(df_entrada))
     st.dataframe(df_entrada, use_container_width=True)
 
+    # --------------------------------------------
     # NOTAS DE SAÍDA
+    # --------------------------------------------
     st.subheader("🧾 Notas Fiscais de Saída (C100)")
     df_saida = df_notas[df_notas["Operação"] == "Saída"]
     st.metric("Total de Notas de Saída", len(df_saida))
@@ -195,7 +217,6 @@ if uploaded_file:
     # ITENS DAS NOTAS
     # --------------------------------------------
     st.subheader("📋 Itens das Notas (C170)")
-    df_itens = pd.DataFrame(itens_nota)
     st.dataframe(df_itens, use_container_width=True)
 
     # --------------------------------------------
@@ -220,21 +241,36 @@ if uploaded_file:
     # --------------------------------------------
     st.subheader("💾 Downloads")
 
-    c1, c2, c3 = st.columns(3)
+    c1, c2, c3, c4, c5 = st.columns(5)
 
-    c1.download_button("Clientes/Fornecedores (CSV)",
-        df_part.to_csv(index=False, encoding="utf-8-sig"),
-        "participantes_0150.csv"
+    c1.download_button(
+        "Clientes (CSV)",
+        df_clientes.to_csv(index=False, encoding="utf-8-sig"),
+        "clientes.csv"
     )
 
-    c2.download_button("Produtos (CSV)",
+    c2.download_button(
+        "Fornecedores (CSV)",
+        df_fornecedores.to_csv(index=False, encoding="utf-8-sig"),
+        "fornecedores.csv"
+    )
+
+    c3.download_button(
+        "Produtos (CSV)",
         df_prod.to_csv(index=False, encoding="utf-8-sig"),
         "produtos_0200.csv"
     )
 
-    c3.download_button("Notas (CSV)",
+    c4.download_button(
+        "Notas (CSV)",
         df_notas.to_csv(index=False, encoding="utf-8-sig"),
         "notas_c100.csv"
+    )
+
+    c5.download_button(
+        "Itens das Notas (CSV)",
+        df_itens.to_csv(index=False, encoding="utf-8-sig"),
+        "itens_c170.csv"
     )
 
 else:
