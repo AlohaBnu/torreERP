@@ -14,9 +14,9 @@ st.title("📘 Analisador de SPED Fiscal – EFD ICMS/IPI")
 st.markdown("""
 Leitura de arquivo **SPED Fiscal (.txt)** com extração de:
 - 🏢 Empresa  
-- 👥 Clientes / Fornecedores  
+- 👥 Clientes / Fornecedores (editáveis)  
 - 📦 Itens / Produtos  
-- 🧾 Notas Fiscais  
+- 🧾 Notas Fiscais (Entrada e Saída)  
 - 💰 ICMS por CFOP  
 - 📊 Apuração do ICMS  
 """)
@@ -39,7 +39,6 @@ def ler_sped(conteudo: bytes):
     empresa = {}
     participantes = []
     produtos = []
-
     notas = []
     itens_nota = []
     icms_cfop = []
@@ -55,7 +54,7 @@ def ler_sped(conteudo: bytes):
         reg = campos[1]
 
         # --------------------------------------------
-        # BLOCO 0 – IDENTIFICAÇÃO E CADASTROS
+        # BLOCO 0
         # --------------------------------------------
         if reg == "0000":
             empresa = {
@@ -92,7 +91,7 @@ def ler_sped(conteudo: bytes):
             })
 
         # --------------------------------------------
-        # BLOCO C – DOCUMENTOS FISCAIS
+        # BLOCO C
         # --------------------------------------------
         elif reg == "C100":
             nota_atual = {
@@ -127,7 +126,7 @@ def ler_sped(conteudo: bytes):
             })
 
         # --------------------------------------------
-        # BLOCO E – APURAÇÃO
+        # BLOCO E
         # --------------------------------------------
         elif reg == "E110":
             apuracao = {
@@ -144,12 +143,12 @@ def ler_sped(conteudo: bytes):
 # MODAL DE EDIÇÃO
 # ----------------------------------------------------
 @st.dialog("✏️ Editar Cadastro")
-def editar_participante(idx, tipo):
+def editar_participante(pos, tipo):
     df = st.session_state.df_clientes if tipo == "Cliente" else st.session_state.df_fornecedores
-    p = df.loc[idx]
+    p = df.iloc[pos]
 
     with st.form("form_edicao"):
-        codigo = st.text_input("Código de Cadastro (pode alterar)", p["Código"])
+        codigo = st.text_input("Código do Cadastro", p["Código"])
         nome = st.text_input("Nome / Razão Social", p["Nome"])
         cnpj = st.text_input("CNPJ", p["CNPJ"])
         ie = st.text_input("Inscrição Estadual", p["IE"])
@@ -158,21 +157,17 @@ def editar_participante(idx, tipo):
         salvar = st.form_submit_button("💾 Salvar")
 
         if salvar:
-            df.at[idx, "Código"] = codigo
-            df.at[idx, "Nome"] = nome
-            df.at[idx, "CNPJ"] = cnpj
-            df.at[idx, "IE"] = ie
-            df.at[idx, "Município"] = municipio
-            st.success("Cadastro salvo com sucesso!")
-
+            df.iloc[pos, df.columns.get_loc("Código")] = codigo
+            df.iloc[pos, df.columns.get_loc("Nome")] = nome
+            df.iloc[pos, df.columns.get_loc("CNPJ")] = cnpj
+            df.iloc[pos, df.columns.get_loc("IE")] = ie
+            df.iloc[pos, df.columns.get_loc("Município")] = municipio
+            st.success("Cadastro atualizado com sucesso!")
 
 # ----------------------------------------------------
 # UPLOAD
 # ----------------------------------------------------
-uploaded_file = st.file_uploader(
-    "📤 Envie o arquivo SPED Fiscal (.txt)",
-    type=["txt"]
-)
+uploaded_file = st.file_uploader("📤 Envie o arquivo SPED Fiscal (.txt)", type=["txt"])
 
 if uploaded_file:
     empresa, participantes, produtos, notas, itens_nota, icms_cfop, apuracao = ler_sped(uploaded_file.read())
@@ -181,66 +176,84 @@ if uploaded_file:
     st.dataframe(pd.DataFrame([empresa]), use_container_width=True)
 
     df_part = pd.DataFrame(participantes)
-    df_notas = pd.DataFrame(notas)
     df_prod = pd.DataFrame(produtos)
+    df_notas = pd.DataFrame(notas)
     df_itens = pd.DataFrame(itens_nota)
 
-    # --------------------------------------------
     # CLIENTES / FORNECEDORES
-    # --------------------------------------------
-    cod_for = df_notas[df_notas["Operação"] == "Entrada"]["Participante"].unique()
     cod_cli = df_notas[df_notas["Operação"] == "Saída"]["Participante"].unique()
+    cod_for = df_notas[df_notas["Operação"] == "Entrada"]["Participante"].unique()
 
     if "df_clientes" not in st.session_state:
-        st.session_state.df_clientes = df_part[df_part["Código"].isin(cod_cli)].copy()
+        st.session_state.df_clientes = df_part[df_part["Código"].isin(cod_cli)].copy().reset_index(drop=True)
 
     if "df_fornecedores" not in st.session_state:
-        st.session_state.df_fornecedores = df_part[df_part["Código"].isin(cod_for)].copy()
+        st.session_state.df_fornecedores = df_part[df_part["Código"].isin(cod_for)].copy().reset_index(drop=True)
 
     # CLIENTES
     st.subheader("👥 Clientes")
     st.dataframe(st.session_state.df_clientes, use_container_width=True)
 
+    idx_cli = st.selectbox(
+        "Selecione o cliente para editar",
+        st.session_state.df_clientes.index,
+        format_func=lambda i: st.session_state.df_clientes.loc[i, "Nome"]
+    )
+
     if st.button("✏️ Editar Cliente"):
-        editar_participante(0, "Cliente")
+        editar_participante(idx_cli, "Cliente")
 
     # FORNECEDORES
     st.subheader("🏭 Fornecedores")
     st.dataframe(st.session_state.df_fornecedores, use_container_width=True)
 
-    if st.button("✏️ Editar Fornecedor"):
-        editar_participante(0, "Fornecedor")
+    idx_for = st.selectbox(
+        "Selecione o fornecedor para editar",
+        st.session_state.df_fornecedores.index,
+        format_func=lambda i: st.session_state.df_fornecedores.loc[i, "Nome"]
+    )
 
-    # --------------------------------------------
+    if st.button("✏️ Editar Fornecedor"):
+        editar_participante(idx_for, "Fornecedor")
+
+    # PRODUTOS
+    st.subheader("📦 Produtos (0200)")
+    st.dataframe(df_prod, use_container_width=True)
+
+    # NOTAS
+    st.subheader("🧾 Notas de Entrada")
+    st.dataframe(df_notas[df_notas["Operação"] == "Entrada"], use_container_width=True)
+
+    st.subheader("🧾 Notas de Saída")
+    st.dataframe(df_notas[df_notas["Operação"] == "Saída"], use_container_width=True)
+
+    # ITENS
+    st.subheader("📋 Itens das Notas (C170)")
+    st.dataframe(df_itens, use_container_width=True)
+
+    # ICMS
+    st.subheader("💰 ICMS por CFOP (C190)")
+    df_icms = pd.DataFrame(icms_cfop)
+    resumo = df_icms.groupby("CFOP").agg(
+        Valor_Operacao=("Valor Operação", "sum"),
+        ICMS=("ICMS", "sum")
+    ).reset_index()
+    st.dataframe(resumo, use_container_width=True)
+
+    # APURAÇÃO
+    st.subheader("📊 Apuração ICMS (E110)")
+    st.dataframe(pd.DataFrame([apuracao]), use_container_width=True)
+
     # DOWNLOADS
-    # --------------------------------------------
     st.subheader("💾 Downloads")
 
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5 = st.columns(5)
 
-    c1.download_button(
-        "Clientes (CSV)",
-        st.session_state.df_clientes.to_csv(index=False, encoding="utf-8-sig"),
-        "clientes.csv"
-    )
-
-    c2.download_button(
-        "Fornecedores (CSV)",
-        st.session_state.df_fornecedores.to_csv(index=False, encoding="utf-8-sig"),
-        "fornecedores.csv"
-    )
-
-    c3.download_button(
-        "Produtos (CSV)",
-        df_prod.to_csv(index=False, encoding="utf-8-sig"),
-        "produtos.csv"
-    )
-
-    c4.download_button(
-        "Itens (CSV)",
-        df_itens.to_csv(index=False, encoding="utf-8-sig"),
-        "itens.csv"
-    )
+    c1.download_button("Clientes (CSV)", st.session_state.df_clientes.to_csv(index=False, encoding="utf-8-sig"), "clientes.csv")
+    c2.download_button("Fornecedores (CSV)", st.session_state.df_fornecedores.to_csv(index=False, encoding="utf-8-sig"), "fornecedores.csv")
+    c3.download_button("Produtos (CSV)", df_prod.to_csv(index=False, encoding="utf-8-sig"), "produtos.csv")
+    c4.download_button("Notas (CSV)", df_notas.to_csv(index=False, encoding="utf-8-sig"), "notas.csv")
+    c5.download_button("Itens (CSV)", df_itens.to_csv(index=False, encoding="utf-8-sig"), "itens.csv")
 
 else:
     st.info("Envie um arquivo SPED Fiscal para iniciar.")
