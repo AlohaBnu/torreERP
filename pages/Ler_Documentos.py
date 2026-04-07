@@ -94,7 +94,7 @@ if uploaded_file:
     )
 
     if st.button("Gerar resumo"):
-        with st.spinner("Gerando resumo com Gemini..."):
+        with st.spinner("Estamos gerando seu resumo..."):
             resumo = gerar_resumo(texto_extraido)
 
         st.subheader("Resumo")
