@@ -8,7 +8,7 @@ import requests
 # 🧩 CONFIGURAÇÃO GERAL
 # -------------------------------------------
 st.set_page_config(page_title="Analisador de XML NF-e", page_icon="🧾", layout="wide")
-st.title("🧾 Analisador Inteligente de XML de Notas Fiscais")
+st.title("🧾 Analisador de XML de Notas Fiscais")
 
 st.markdown("""
 Analise **arquivos XML de NF-e** e visualize:
@@ -213,7 +213,7 @@ if uploaded_files:
         # -------------------------------------------
         csv = df.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
         st.download_button(
-            "💾 Baixar CSV consolidado",
+            "💾 Baixar CSV",
             csv,
             "analise_xml_notas.csv",
             "text/csv",

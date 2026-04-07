@@ -8,7 +8,7 @@ import requests
 # 🧩 CONFIGURAÇÃO GERAL
 # -------------------------------------------
 st.set_page_config(page_title="Analisador de XML NFS-e", page_icon="🧾", layout="wide")
-st.title("🧾 Analisador Inteligente de XML de Notas Fiscais de Serviço (NFS-e)")
+st.title("🧾 Analisador XML de Notas Fiscais de Serviço (NFS-e)")
 
 st.markdown("""
 Analise **arquivos XML de NFS-e** e visualize:
