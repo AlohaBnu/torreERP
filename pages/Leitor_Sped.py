@@ -173,13 +173,23 @@ if uploaded_file:
     st.metric("Total de Itens", len(df_prod))
     st.dataframe(df_prod, use_container_width=True)
 
+   
     # --------------------------------------------
     # NOTAS
     # --------------------------------------------
-    st.subheader("🧾 Notas Fiscais (C100)")
     df_notas = pd.DataFrame(notas)
-    st.metric("Total de Notas", len(df_notas))
-    st.dataframe(df_notas, use_container_width=True)
+
+    # NOTAS DE ENTRADA
+    st.subheader("🧾 Notas Fiscais de Entrada (C100)")
+    df_entrada = df_notas[df_notas["Operação"] == "Entrada"]
+    st.metric("Total de Notas de Entrada", len(df_entrada))
+    st.dataframe(df_entrada, use_container_width=True)
+
+    # NOTAS DE SAÍDA
+    st.subheader("🧾 Notas Fiscais de Saída (C100)")
+    df_saida = df_notas[df_notas["Operação"] == "Saída"]
+    st.metric("Total de Notas de Saída", len(df_saida))
+    st.dataframe(df_saida, use_container_width=True)
 
     # --------------------------------------------
     # ITENS DAS NOTAS
