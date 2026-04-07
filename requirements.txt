@@ -6,5 +6,5 @@ openpyxl
 streamlit
 nltk
 python-docx
-pypd
+pypdf
 openpyxl
