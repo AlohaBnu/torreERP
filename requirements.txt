@@ -7,3 +7,4 @@ streamlit
 nltk
 python-docx
 pypd
+openpyxl
