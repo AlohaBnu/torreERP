@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 # ----------------------------------------------------
-# CONFIGURAÇÃO GERAL
+# CONFIGURAÇÃO
 # ----------------------------------------------------
 st.set_page_config(
     page_title="Analisador SPED Fiscal",
@@ -10,12 +10,13 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("📘 Analisador de SPED Fiscal (EFD ICMS/IPI)")
+st.title("📘 Analisador de SPED Fiscal – EFD ICMS/IPI")
 st.markdown("""
-Analise **arquivos SPED Fiscal (.txt)** e visualize:
-- 🏢 Dados da empresa  
-- 🧾 Notas fiscais (Bloco C)  
-- 📦 Itens das notas  
+Leitura de arquivo **SPED Fiscal (.txt)** com extração de:
+- 🏢 Empresa  
+- 👥 Clientes / Fornecedores  
+- 📦 Itens / Produtos  
+- 🧾 Notas Fiscais  
 - 💰 ICMS por CFOP  
 - 📊 Apuração do ICMS  
 """)
@@ -23,21 +24,24 @@ Analise **arquivos SPED Fiscal (.txt)** e visualize:
 # ----------------------------------------------------
 # FUNÇÕES AUXILIARES
 # ----------------------------------------------------
-def to_float(valor):
+def to_float(v):
     try:
-        if valor is None or valor == "":
+        if not v:
             return 0.0
-        return float(valor.replace(",", "."))
+        return float(v.replace(",", "."))
     except:
         return 0.0
 
 
-def ler_sped_fiscal(conteudo: bytes):
+def ler_sped(conteudo: bytes):
     linhas = conteudo.decode("latin1").splitlines()
 
     empresa = {}
+    participantes = []
+    produtos = []
+
     notas = []
-    itens = []
+    itens_nota = []
     icms_cfop = []
     apuracao = {}
 
@@ -50,26 +54,52 @@ def ler_sped_fiscal(conteudo: bytes):
         campos = linha.strip().split("|")
         reg = campos[1]
 
-        # ------------------------------------------------
-        # BLOCO 0 - EMPRESA
-        # ------------------------------------------------
+        # --------------------------------------------
+        # BLOCO 0 – IDENTIFICAÇÃO E CADASTROS
+        # --------------------------------------------
         if reg == "0000":
             empresa = {
                 "CNPJ": campos[7],
                 "Razão Social": campos[6],
                 "UF": campos[10],
+                "IE": campos[11],
                 "Data Inicial": campos[4],
                 "Data Final": campos[5],
                 "Perfil": campos[14]
             }
 
-        # ------------------------------------------------
-        # BLOCO C - NOTAS FISCAIS
-        # ------------------------------------------------
+        elif reg == "0150":
+            participantes.append({
+                "Código": campos[2],
+                "Nome": campos[3],
+                "Código País": campos[4],
+                "CNPJ": campos[5],
+                "CPF": campos[6],
+                "IE": campos[7],
+                "Município": campos[9]
+            })
+
+        elif reg == "0200":
+            produtos.append({
+                "Código Item": campos[2],
+                "Descrição": campos[3],
+                "Código Barra": campos[4],
+                "Unidade": campos[6],
+                "Tipo Item": campos[7],
+                "NCM": campos[8],
+                "CEST": campos[9] if len(campos) > 9 else None,
+                "Alíquota ICMS": campos[12] if len(campos) > 12 else None
+            })
+
+        # --------------------------------------------
+        # BLOCO C – DOCUMENTOS FISCAIS
+        # --------------------------------------------
         elif reg == "C100":
             nota_atual = {
                 "Operação": "Entrada" if campos[2] == "0" else "Saída",
+                "Participante": campos[4],
                 "Modelo": campos[5],
+                "Série": campos[6],
                 "Número": campos[8],
                 "Chave NF-e": campos[9],
                 "Data": campos[11],
@@ -78,12 +108,13 @@ def ler_sped_fiscal(conteudo: bytes):
             notas.append(nota_atual)
 
         elif reg == "C170" and nota_atual:
-            itens.append({
+            itens_nota.append({
                 "Número NF": nota_atual["Número"],
                 "Código Item": campos[3],
                 "Quantidade": to_float(campos[4]),
                 "Valor Item": to_float(campos[7]),
-                "CFOP": campos[11]
+                "CFOP": campos[11],
+                "CST ICMS": campos[10]
             })
 
         elif reg == "C190":
@@ -95,9 +126,9 @@ def ler_sped_fiscal(conteudo: bytes):
                 "ICMS": to_float(campos[6])
             })
 
-        # ------------------------------------------------
-        # BLOCO E - APURAÇÃO
-        # ------------------------------------------------
+        # --------------------------------------------
+        # BLOCO E – APURAÇÃO
+        # --------------------------------------------
         elif reg == "E110":
             apuracao = {
                 "Débitos": to_float(campos[2]),
@@ -106,11 +137,11 @@ def ler_sped_fiscal(conteudo: bytes):
                 "Saldo Credor": to_float(campos[11])
             }
 
-    return empresa, notas, itens, icms_cfop, apuracao
+    return empresa, participantes, produtos, notas, itens_nota, icms_cfop, apuracao
 
 
 # ----------------------------------------------------
-# UPLOAD DO ARQUIVO
+# UPLOAD
 # ----------------------------------------------------
 uploaded_file = st.file_uploader(
     "📤 Envie o arquivo SPED Fiscal (.txt)",
@@ -118,95 +149,83 @@ uploaded_file = st.file_uploader(
 )
 
 if uploaded_file:
-    empresa, notas, itens, icms_cfop, apuracao = ler_sped_fiscal(uploaded_file.read())
+    empresa, participantes, produtos, notas, itens_nota, icms_cfop, apuracao = ler_sped(uploaded_file.read())
 
-    # ------------------------------------------------
+    # --------------------------------------------
     # EMPRESA
-    # ------------------------------------------------
+    # --------------------------------------------
     st.subheader("🏢 Empresa")
-    if empresa:
-        st.dataframe(pd.DataFrame([empresa]), use_container_width=True)
-    else:
-        st.warning("Registro 0000 não encontrado.")
+    st.dataframe(pd.DataFrame([empresa]), use_container_width=True)
 
-    # ------------------------------------------------
-    # NOTAS FISCAIS
-    # ------------------------------------------------
+    # --------------------------------------------
+    # PARTICIPANTES
+    # --------------------------------------------
+    st.subheader("👥 Clientes / Fornecedores (0150)")
+    df_part = pd.DataFrame(participantes)
+    st.metric("Total de Participantes", len(df_part))
+    st.dataframe(df_part, use_container_width=True)
+
+    # --------------------------------------------
+    # PRODUTOS
+    # --------------------------------------------
+    st.subheader("📦 Cadastro de Itens / Produtos (0200)")
+    df_prod = pd.DataFrame(produtos)
+    st.metric("Total de Itens", len(df_prod))
+    st.dataframe(df_prod, use_container_width=True)
+
+    # --------------------------------------------
+    # NOTAS
+    # --------------------------------------------
     st.subheader("🧾 Notas Fiscais (C100)")
     df_notas = pd.DataFrame(notas)
-    if not df_notas.empty:
-        col1, col2 = st.columns(2)
-        col1.metric("Quantidade de Notas", len(df_notas))
-        col2.metric("Valor Total", f"R$ {df_notas['Valor Total'].sum():,.2f}")
+    st.metric("Total de Notas", len(df_notas))
+    st.dataframe(df_notas, use_container_width=True)
 
-        st.dataframe(df_notas, use_container_width=True)
-    else:
-        st.info("Nenhuma nota fiscal encontrada.")
-
-    # ------------------------------------------------
+    # --------------------------------------------
     # ITENS DAS NOTAS
-    # ------------------------------------------------
-    st.subheader("📦 Itens das Notas (C170)")
-    df_itens = pd.DataFrame(itens)
-    if not df_itens.empty:
-        st.dataframe(df_itens, use_container_width=True)
-    else:
-        st.info("Nenhum item encontrado.")
+    # --------------------------------------------
+    st.subheader("📋 Itens das Notas (C170)")
+    df_itens = pd.DataFrame(itens_nota)
+    st.dataframe(df_itens, use_container_width=True)
 
-    # ------------------------------------------------
+    # --------------------------------------------
     # ICMS POR CFOP
-    # ------------------------------------------------
+    # --------------------------------------------
     st.subheader("💰 ICMS por CFOP (C190)")
     df_icms = pd.DataFrame(icms_cfop)
-    if not df_icms.empty:
-        resumo_cfop = df_icms.groupby("CFOP").agg({
-            "Valor Operação": "sum",
-            "ICMS": "sum"
-        }).reset_index()
+    resumo_cfop = df_icms.groupby("CFOP").agg(
+        Valor_Operacao=("Valor Operação", "sum"),
+        ICMS=("ICMS", "sum")
+    ).reset_index()
+    st.dataframe(resumo_cfop, use_container_width=True)
 
-        st.dataframe(resumo_cfop, use_container_width=True)
-    else:
-        st.info("Nenhum ICMS encontrado.")
+    # --------------------------------------------
+    # APURAÇÃO
+    # --------------------------------------------
+    st.subheader("📊 Apuração ICMS (E110)")
+    st.dataframe(pd.DataFrame([apuracao]), use_container_width=True)
 
-    # ------------------------------------------------
-    # APURAÇÃO DO ICMS
-    # ------------------------------------------------
-    st.subheader("📊 Apuração do ICMS (E110)")
-    if apuracao:
-        st.dataframe(pd.DataFrame([apuracao]), use_container_width=True)
-    else:
-        st.info("Registro E110 não encontrado.")
+    # --------------------------------------------
+    # DOWNLOADS
+    # --------------------------------------------
+    st.subheader("💾 Downloads")
 
-    # ------------------------------------------------
-    # DOWNLOAD CSV
-    # ------------------------------------------------
-    st.subheader("💾 Download dos Dados")
+    c1, c2, c3 = st.columns(3)
 
-    col1, col2, col3 = st.columns(3)
+    c1.download_button("Clientes/Fornecedores (CSV)",
+        df_part.to_csv(index=False, encoding="utf-8-sig"),
+        "participantes_0150.csv"
+    )
 
-    with col1:
-        st.download_button(
-            "Baixar Notas (CSV)",
-            df_notas.to_csv(index=False, encoding="utf-8-sig"),
-            "notas_sped.csv",
-            "text/csv"
-        )
+    c2.download_button("Produtos (CSV)",
+        df_prod.to_csv(index=False, encoding="utf-8-sig"),
+        "produtos_0200.csv"
+    )
 
-    with col2:
-        st.download_button(
-            "Baixar Itens (CSV)",
-            df_itens.to_csv(index=False, encoding="utf-8-sig"),
-            "itens_sped.csv",
-            "text/csv"
-        )
-
-    with col3:
-        st.download_button(
-            "Baixar ICMS por CFOP (CSV)",
-            resumo_cfop.to_csv(index=False, encoding="utf-8-sig"),
-            "icms_cfop_sped.csv",
-            "text/csv"
-        )
+    c3.download_button("Notas (CSV)",
+        df_notas.to_csv(index=False, encoding="utf-8-sig"),
+        "notas_c100.csv"
+    )
 
 else:
-    st.info("Envie um arquivo SPED Fiscal para iniciar a análise.")
+    st.info("Envie um arquivo SPED Fiscal para iniciar.")
