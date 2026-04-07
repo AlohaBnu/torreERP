@@ -12,13 +12,10 @@ st.set_page_config(
 
 st.title("📘 Analisador de SPED Fiscal – EFD ICMS/IPI")
 st.markdown("""
-Leitura de arquivo **SPED Fiscal (.txt)** com extração de:
-- 🏢 Empresa  
-- 👥 Clientes / Fornecedores  
-- 📦 Itens / Produtos  
-- 🧾 Notas Fiscais  
-- 💰 ICMS por CFOP  
-- 📊 Apuração do ICMS  
+Leitura de arquivo **SPED Fiscal (.txt)** com:
+- ✅ Diferenciação de **Entrada x Saída**
+- ✅ Cadastro correto de **Clientes e Fornecedores**
+- ✅ Tratamento fiscal adequado de impostos
 """)
 
 # ----------------------------------------------------
@@ -37,7 +34,7 @@ def ler_sped(conteudo: bytes):
     linhas = conteudo.decode("latin1").splitlines()
 
     empresa = {}
-    participantes = []
+    participantes = {}
     produtos = []
 
     notas = []
@@ -54,9 +51,9 @@ def ler_sped(conteudo: bytes):
         campos = linha.strip().split("|")
         reg = campos[1]
 
-        # --------------------------------------------
-        # BLOCO 0 – IDENTIFICAÇÃO E CADASTROS
-        # --------------------------------------------
+        # ------------------------------------------------
+        # BLOCO 0 – EMPRESA
+        # ------------------------------------------------
         if reg == "0000":
             empresa = {
                 "CNPJ": campos[7],
@@ -65,39 +62,55 @@ def ler_sped(conteudo: bytes):
                 "IE": campos[11],
                 "Data Inicial": campos[4],
                 "Data Final": campos[5],
-                "Perfil": campos[14]
+                "Perfil SPED": campos[14]
             }
 
+        # ------------------------------------------------
+        # BLOCO 0 – PARTICIPANTES
+        # ------------------------------------------------
         elif reg == "0150":
-            participantes.append({
-                "Código": campos[2],
+            cod = campos[2]
+            participantes[cod] = {
+                "Código": cod,
                 "Nome": campos[3],
-                "Código País": campos[4],
                 "CNPJ": campos[5],
                 "CPF": campos[6],
                 "IE": campos[7],
-                "Município": campos[9]
-            })
+                "Município": campos[9],
+                "Tipos": set()  # Cliente / Fornecedor
+            }
 
+        # ------------------------------------------------
+        # BLOCO 0 – PRODUTOS
+        # ------------------------------------------------
         elif reg == "0200":
             produtos.append({
                 "Código Item": campos[2],
                 "Descrição": campos[3],
-                "Código Barra": campos[4],
                 "Unidade": campos[6],
                 "Tipo Item": campos[7],
                 "NCM": campos[8],
-                "CEST": campos[9] if len(campos) > 9 else None,
-                "Alíquota ICMS": campos[12] if len(campos) > 12 else None
+                "CEST": campos[9] if len(campos) > 9 else None
             })
 
-        # --------------------------------------------
-        # BLOCO C – DOCUMENTOS FISCAIS
-        # --------------------------------------------
+        # ------------------------------------------------
+        # BLOCO C – NOTAS FISCAIS
+        # ------------------------------------------------
         elif reg == "C100":
+            ind_oper = campos[2]
+            tipo_operacao = "ENTRADA" if ind_oper == "0" else "SAÍDA"
+            cod_part = campos[4]
+
+            # marca participante
+            if cod_part in participantes:
+                if tipo_operacao == "ENTRADA":
+                    participantes[cod_part]["Tipos"].add("Fornecedor")
+                else:
+                    participantes[cod_part]["Tipos"].add("Cliente")
+
             nota_atual = {
-                "Operação": "Entrada" if campos[2] == "0" else "Saída",
-                "Participante": campos[4],
+                "Tipo Operação": tipo_operacao,
+                "Participante": cod_part,
                 "Modelo": campos[5],
                 "Série": campos[6],
                 "Número": campos[8],
@@ -105,11 +118,16 @@ def ler_sped(conteudo: bytes):
                 "Data": campos[11],
                 "Valor Total": to_float(campos[12])
             }
+
             notas.append(nota_atual)
 
+        # ------------------------------------------------
+        # BLOCO C – ITENS
+        # ------------------------------------------------
         elif reg == "C170" and nota_atual:
             itens_nota.append({
                 "Número NF": nota_atual["Número"],
+                "Tipo Operação": nota_atual["Tipo Operação"],
                 "Código Item": campos[3],
                 "Quantidade": to_float(campos[4]),
                 "Valor Item": to_float(campos[7]),
@@ -117,8 +135,12 @@ def ler_sped(conteudo: bytes):
                 "CST ICMS": campos[10]
             })
 
+        # ------------------------------------------------
+        # BLOCO C – ICMS
+        # ------------------------------------------------
         elif reg == "C190":
             icms_cfop.append({
+                "Tipo Operação": nota_atual["Tipo Operação"] if nota_atual else None,
                 "CFOP": campos[3],
                 "CST": campos[2],
                 "Valor Operação": to_float(campos[4]),
@@ -126,16 +148,25 @@ def ler_sped(conteudo: bytes):
                 "ICMS": to_float(campos[6])
             })
 
-        # --------------------------------------------
+        # ------------------------------------------------
         # BLOCO E – APURAÇÃO
-        # --------------------------------------------
+        # ------------------------------------------------
         elif reg == "E110":
             apuracao = {
-                "Débitos": to_float(campos[2]),
-                "Créditos": to_float(campos[3]),
+                "Débitos ICMS": to_float(campos[2]),
+                "Créditos ICMS": to_float(campos[3]),
                 "ICMS a Recolher": to_float(campos[9]),
                 "Saldo Credor": to_float(campos[11])
             }
+
+    # transforma participantes em lista
+    participantes = [
+        {
+            **v,
+            "Tipo Cadastro": " / ".join(sorted(v["Tipos"])) if v["Tipos"] else "Sem Movimento"
+        }
+        for v in participantes.values()
+    ]
 
     return empresa, participantes, produtos, notas, itens_nota, icms_cfop, apuracao
 
@@ -151,81 +182,37 @@ uploaded_file = st.file_uploader(
 if uploaded_file:
     empresa, participantes, produtos, notas, itens_nota, icms_cfop, apuracao = ler_sped(uploaded_file.read())
 
-    # --------------------------------------------
-    # EMPRESA
-    # --------------------------------------------
     st.subheader("🏢 Empresa")
     st.dataframe(pd.DataFrame([empresa]), use_container_width=True)
 
-    # --------------------------------------------
-    # PARTICIPANTES
-    # --------------------------------------------
     st.subheader("👥 Clientes / Fornecedores (0150)")
     df_part = pd.DataFrame(participantes)
-    st.metric("Total de Participantes", len(df_part))
     st.dataframe(df_part, use_container_width=True)
 
-    # --------------------------------------------
-    # PRODUTOS
-    # --------------------------------------------
-    st.subheader("📦 Cadastro de Itens / Produtos (0200)")
+    st.subheader("📦 Produtos (0200)")
     df_prod = pd.DataFrame(produtos)
-    st.metric("Total de Itens", len(df_prod))
     st.dataframe(df_prod, use_container_width=True)
 
-    # --------------------------------------------
-    # NOTAS
-    # --------------------------------------------
     st.subheader("🧾 Notas Fiscais (C100)")
     df_notas = pd.DataFrame(notas)
-    st.metric("Total de Notas", len(df_notas))
     st.dataframe(df_notas, use_container_width=True)
 
-    # --------------------------------------------
-    # ITENS DAS NOTAS
-    # --------------------------------------------
     st.subheader("📋 Itens das Notas (C170)")
     df_itens = pd.DataFrame(itens_nota)
     st.dataframe(df_itens, use_container_width=True)
 
-    # --------------------------------------------
-    # ICMS POR CFOP
-    # --------------------------------------------
-    st.subheader("💰 ICMS por CFOP (C190)")
+    st.subheader("💰 ICMS por CFOP e Tipo de Operação")
     df_icms = pd.DataFrame(icms_cfop)
-    resumo_cfop = df_icms.groupby("CFOP").agg(
+    resumo_cfop = df_icms.groupby(
+        ["Tipo Operação", "CFOP"]
+    ).agg(
         Valor_Operacao=("Valor Operação", "sum"),
         ICMS=("ICMS", "sum")
     ).reset_index()
     st.dataframe(resumo_cfop, use_container_width=True)
 
-    # --------------------------------------------
-    # APURAÇÃO
-    # --------------------------------------------
-    st.subheader("📊 Apuração ICMS (E110)")
+    st.subheader("📊 Apuração do ICMS (E110)")
     st.dataframe(pd.DataFrame([apuracao]), use_container_width=True)
-
-    # --------------------------------------------
-    # DOWNLOADS
-    # --------------------------------------------
-    st.subheader("💾 Downloads")
-
-    c1, c2, c3 = st.columns(3)
-
-    c1.download_button("Clientes/Fornecedores (CSV)",
-        df_part.to_csv(index=False, encoding="utf-8-sig"),
-        "participantes_0150.csv"
-    )
-
-    c2.download_button("Produtos (CSV)",
-        df_prod.to_csv(index=False, encoding="utf-8-sig"),
-        "produtos_0200.csv"
-    )
-
-    c3.download_button("Notas (CSV)",
-        df_notas.to_csv(index=False, encoding="utf-8-sig"),
-        "notas_c100.csv"
-    )
 
 else:
     st.info("Envie um arquivo SPED Fiscal para iniciar.")
