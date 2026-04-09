@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Senior Green Platformer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+  :root {
+    --bg: #050b14;
+    --neon-blue: #2dd3ff;
+    --green: #2ecc71;
+    --white: #eaf6ff;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    color: var(--white);
+  }
+
+  body {
+    background: radial-gradient(circle at top, #0b1a2e, var(--bg));
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .page {
+    max-width: 960px;
+    width: 100%;
+    text-align: center;
+  }
+
+  header {
+    margin-bottom: 16px;
+  }
+
+  header h1 {
+    font-size: 28px;
+    color: var(--green);
+    margin-bottom: 4px;
+  }
+
+  header p {
+    font-size: 14px;
+    opacity: 0.85;
+  }
+
+  .game-frame {
+    background: #010409;
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 0 25px rgba(45, 211, 255, 0.25);
+  }
+
+  canvas {
+    display: block;
+    margin: 0 auto;
+    background: #020814;
+    border-radius: 8px;
+  }
+
+  .instructions {
+    font-size: 13px;
+    margin-top: 10px;
+    opacity: 0.85;
+  }
+
+  /* Touch controls */
+  .touch-controls {
+    display: none;
+    margin-top: 10px;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .btn {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(#0c3760, #041a30);
+    border: 1px solid var(--neon-blue);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    user-select: none;
+  }
+
+  @media (max-width: 768px) {
+    .touch-controls {
+      display: flex;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>Senior Green Platformer</h1>
+    <p>Jogo 2D estilo Mario · Canvas · Arquivo HTML único</p>
+  </header>
+
+  <div class="game-frame">
+    <canvas id="game" width="800" height="450"></canvas>
+
+    <div class="touch-controls">
+      <div class="btn" data-key="left">◀</div>
+      <div class="btn" data-key="right">▶</div>
+      <div class="btn" data-key="jump">⤒</div>
+    </div>
+  </div>
+
+  <div class="instructions">
+    Enter inicia · P pausa · R reinicia · Setas / WASD
+  </div>
+</div>
+
+<script>
+(() => {
+  /* =========================
+     CONFIG
+  ==========================*/
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+
+  const TILE = 32;
+  const GRAVITY = 2200;
+  const JUMP = 720;
+  const SPEED = 280;
+
+  let lastTime = 0;
+  let gameState = "START"; // START, PLAY, PAUSED, GAMEOVER, WIN
+
+  /* =========================
+     AUDIO
+  ==========================*/
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const beep = (freq, dur = 0.08) => {
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = "square";
+    o.frequency.value = freq;
+    g.gain.value = 0.03;
+    o.connect(g).connect(audioCtx.destination);
+    o.start();
+    o.stop(audioCtx.currentTime + dur);
+  };
+
+  /* =========================
+     INPUT
+  ==========================*/
+  const keys = {};
+  window.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+  window.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+  document.querySelectorAll(".btn").forEach(btn => {
+    const k = btn.dataset.key;
+    btn.addEventListener("touchstart", e => {
+      e.preventDefault();
+      keys[k] = true;
+    });
+    btn.addEventListener("touchend", e => {
+      e.preventDefault();
+      keys[k] = false;
+    });
+  });
+
+  /* =========================
+     MAP (PROCEDURAL)
+  ==========================*/
+  const mapWidth = 50;
+  const mapHeight = 14;
+  const map = [];
+
+  function generateMap() {
+    map.length = 0;
+    for (let y = 0; y < mapHeight; y++) {
+      const row = [];
+      for (let x = 0; x < mapWidth; x++) {
+        if (y === mapHeight - 1) row.push(1);
+        else if (y > 8 && Math.random() < 0.12) row.push(1);
+        else row.push(Math.random() < 0.08 && y > 3 ? 2 : 0); // 2 = pellet
+      }
+      map.push(row);
+    }
+  }
+
+  generateMap();
+
+  /* =========================
+     PLAYER
+  ==========================*/
+  let player;
+
+  function resetPlayer() {
+    player = {
+      x: 64,
+      y: 0,
+      w: 22,
+      h: 30,
+      vx: 0,
+      vy: 0,
+      onGround: false,
+      lives: 3,
+      score: 0,
+      anim: 0
+    };
+  }
+
+  resetPlayer();
+
+  /* =========================
+     HELPERS
+  ==========================*/
+  function tileAt(tx, ty) {
+    if (map[ty] && map[ty][tx]) return map[ty][tx];
+    return 0;
+  }
+
+  function rectVsMap(r) {
+    const startX = Math.floor(r.x / TILE);
+    const endX   = Math.floor((r.x + r.w) / TILE);
+    const startY = Math.floor(r.y / TILE);
+    const endY   = Math.floor((r.y + r.h) / TILE);
+
+    for (let y = startY; y <= endY; y++) {
+      for (let x = startX; x <= endX; x++) {
+        if (tileAt(x, y) === 1) {
+          return { x, y };
+        }
+      }
+    }
+    return null;
+  }
+
+  /* =========================
+     UPDATE
+  ==========================*/
+  function update(dt) {
+    if (gameState !== "PLAY") return;
+
+    const left  = keys["arrowleft"] || keys["a"] || keys["left"];
+    const right = keys["arrowright"] || keys["d"] || keys["right"];
+    const jump  = keys["arrowup"] || keys["w"] || keys[" "] || keys["jump"];
+
+    player.vx = (right - left) * SPEED;
+    player.vy += GRAVITY * dt;
+
+    if (jump && player.onGround) {
+      player.vy = -JUMP;
+      player.onGround = false;
+      beep(300);
+    }
+
+    // Horizontal
+    player.x += player.vx * dt;
+    let hitX = rectVsMap(player);
+    if (hitX) {
+      player.x -= player.vx * dt;
+    }
+
+    // Vertical
+    player.y += player.vy * dt;
+    let hitY = rectVsMap(player);
+    if (hitY) {
+      if (player.vy > 0) {
+        player.onGround = true;
+      }
+      player.vy = 0;
+      player.y = hitY.y * TILE - player.h;
+    } else {
+      player.onGround = false;
+    }
+
+    // Collect pellets
+    const tx = Math.floor((player.x + player.w / 2) / TILE);
+    const ty = Math.floor((player.y + player.h / 2) / TILE);
+    if (tileAt(tx, ty) === 2) {
+      map[ty][tx] = 0;
+      player.score += 100;
+      beep(600);
+    }
+
+    // Fall death
+    if (player.y > canvas.height) {
+      player.lives--;
+      beep(120, 0.2);
+      if (player.lives <= 0) {
+        gameState = "GAMEOVER";
+      } else {
+        player.x = 64;
+        player.y = 0;
+        player.vy = 0;
+      }
+    }
+
+    // Victory
+    const remaining = map.flat().some(t => t === 2);
+    if (!remaining) {
+      gameState = "WIN";
+      beep(900, 0.3);
+    }
+
+    player.anim += dt * 10;
+  }
+
+  /* =========================
+     RENDER
+  ==========================*/
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Camera
+    const camX = Math.max(0, player.x - canvas.width / 2);
+
+    ctx.save();
+    ctx.translate(-camX, 0);
+
+    // Map
+    for (let y = 0; y < mapHeight; y++) {
+      for (let x = 0; x < mapWidth; x++) {
+        if (map[y][x] === 1) {
+          ctx.fillStyle = "#1e90b0";
+          ctx.fillRect(x*TILE, y*TILE, TILE, TILE);
+        }
+        if (map[y][x] === 2) {
+          ctx.fillStyle = "#7CFFCB";
+          ctx.beginPath();
+          ctx.arc(x*TILE+16, y*TILE+16, 6, 0, Math.PI*2);
+          ctx.fill();
+        }
+      }
+    }
+
+    // Player
+    ctx.fillStyle = "#2ecc71";
+    ctx.fillRect(player.x, player.y, player.w, player.h);
+    ctx.strokeStyle = "rgba(0,0,0,0.4)";
+    ctx.strokeRect(player.x, player.y, player.w, player.h);
+
+    ctx.restore();
+
+    // HUD
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "14px Arial";
+    ctx.fillText(`Score: ${player.score}`, 12, 18);
+    ctx.fillText(`Vidas: ${player.lives}`, 12, 36);
+
+    if (gameState !== "PLAY") {
+      ctx.fillStyle = "rgba(0,0,0,0.6)";
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "28px Arial";
+      ctx.textAlign = "center";
+
+      let msg = "ENTER PARA COMEÇAR";
+      if (gameState === "PAUSED") msg = "PAUSADO";
+      if (gameState === "GAMEOVER") msg = "GAME OVER";
+      if (gameState === "WIN") msg = "VITÓRIA!";
+
+      ctx.fillText(msg, canvas.width/2, canvas.height/2);
+      ctx.textAlign = "left";
+    }
+  }
+
+  /* =========================
+     LOOP
+  ==========================*/
+  function loop(t) {
+    const dt = Math.min((t - lastTime) / 1000, 0.033);
+    lastTime = t;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  requestAnimationFrame(loop);
+
+  /* =========================
+     STATE CONTROL
+  ==========================*/
+  window.addEventListener("keydown", e => {
+    if (e.key === "Enter" && gameState === "START") {
+      gameState = "PLAY";
+      audioCtx.resume();
+    }
+    if (e.key.toLowerCase() === "p" && gameState === "PLAY") {
+      gameState = "PAUSED";
+    } else if (e.key.toLowerCase() === "p" && gameState === "PAUSED") {
+      gameState = "PLAY";
+    }
+    if (e.key.toLowerCase() === "r") {
+      generateMap();
+      resetPlayer();
+      gameState = "START";
+    }
+  });
+
+})();
+</script>
+</body>
+</html>
