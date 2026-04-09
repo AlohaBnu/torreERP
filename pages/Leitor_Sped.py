@@ -292,4 +292,4 @@ if uploaded_file:
     c5.download_button("Itens (CSV)", df_itens.to_csv(index=False, encoding="utf-8-sig"), "itens.csv")
 
 else:
-    st.info("Envie um arquivo SPED Fiscal para iniciar.")
+    st.info("Envie um arquivo SPED Fiscal para iniciar111.")
