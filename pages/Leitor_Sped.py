@@ -10,166 +10,19 @@ st.set_page_config(
     layout="wide"
 )
 
-# ----------------------------------------------------
-# HEADER MODERNO + LOGO (VISUAL APENAS)
-# ----------------------------------------------------
+st.title("📘 Analisador de SPED Fiscal – EFD ICMS/IPI")
 st.markdown("""
-<style>
-/* -------------------------
-   GLOBAL
-------------------------- */
-html, body, [class*="css"] {
-    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont;
-}
-
-.block-container {
-    padding-top: 4.2rem;
-    padding-left: 2.5rem;
-    padding-right: 2.5rem;
-}
-
-/* -------------------------
-   HEADER FIXO
-------------------------- */
-.app-header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 64px;
-    background: linear-gradient(135deg, #020617, #0f172a);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 36px;
-    z-index: 999;
-    border-bottom: 1px solid #1e293b;
-    box-shadow: 0 2px 12px rgba(0,0,0,.35);
-}
-
-.app-title {
-    font-size: 17px;
-    font-weight: 600;
-    color: #e5e7eb;
-    letter-spacing: 0.4px;
-}
-
-.app-logo {
-    font-size: 22px;
-    font-weight: 800;
-    color: #38bdf8;
-    letter-spacing: 1.2px;
-}
-
-.app-logo span {
-    color: #e5e7eb;
-    font-weight: 500;
-    margin-left: 6px;
-}
-
-/* -------------------------
-   TÍTULOS
-------------------------- */
-h1 {
-    font-size: 36px !important;
-    font-weight: 800 !important;
-    letter-spacing: -0.4px;
-}
-
-h2, h3 {
-    font-weight: 700;
-}
-
-/* -------------------------
-   MÉTRICAS
-------------------------- */
-div[data-testid="metric-container"] {
-    background: linear-gradient(180deg, #020617, #020617);
-    border: 1px solid #1e293b;
-    padding: 16px;
-    border-radius: 12px;
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
-}
-
-div[data-testid="metric-container"] label {
-    font-size: 12px;
-    color: #94a3b8 !important;
-}
-
-div[data-testid="metric-container"] div {
-    font-size: 26px;
-    font-weight: 700;
-}
-
-/* -------------------------
-   DATAFRAMES
-------------------------- */
-div[data-testid="stDataFrame"] {
-    border-radius: 14px;
-    border: 1px solid #1e293b;
-    overflow: hidden;
-    box-shadow: 0 4px 18px rgba(0,0,0,.25);
-}
-
-/* -------------------------
-   INPUTS
-------------------------- */
-.stTextInput input,
-.stSelectbox div[data-baseweb="select"] {
-    border-radius: 10px !important;
-}
-
-/* -------------------------
-   BOTÕES
-------------------------- */
-.stButton button,
-.stDownloadButton button {
-    border-radius: 10px;
-    font-weight: 600;
-    padding: 0.45rem 1.1rem;
-}
-
-/* -------------------------
-   SEÇÕES (SUBHEADERS)
-------------------------- */
-section[data-testid="stVerticalBlock"] > div > h3 {
-    margin-top: 30px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid #1e293b;
-}
-
-</style>
-
-<div class="app-header">
-    <div class="app-title">Analisador SPED Fiscal</div>
-    <div class="app-logo">Torre<span>ERP</span></div>
-</div>
-""", unsafe_allow_html=True)
-
-# ----------------------------------------------------
-# TÍTULO E DESCRIÇÃO (VISUAL APENAS)
-# ----------------------------------------------------
-st.markdown("""
-<h1 style="font-size: 34px; font-weight: 700; margin-bottom: 0;">
-📘 Analisador de SPED Fiscal
-</h1>
-<p style="color: #6b7280; font-size: 16px; margin-top: 4px;">
-EFD ICMS/IPI • Auditoria • Análise Tributária
-</p>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-### 🔍 Funcionalidades
-- 🏢 **Identificação da Empresa**
-- 👥 **Clientes e Fornecedores editáveis**
-- 📦 **Cadastro de Produtos (0200)**
-- 🧾 **Notas Fiscais**
-- 💰 **ICMS por CFOP**
-- 📊 **Apuração do ICMS**
+Leitura de arquivo **SPED Fiscal (.txt)** com extração de:
+- 🏢 Empresa  
+- 👥 Clientes / Fornecedores (editáveis)  
+- 📦 Itens / Produtos  
+- 🧾 Notas Fiscais  
+- 💰 ICMS por CFOP  
+- 📊 Apuração do ICMS  
 """)
 
 # ----------------------------------------------------
-# FUNÇÕES AUXILIARES (INALTERADAS)
+# FUNÇÕES AUXILIARES
 # ----------------------------------------------------
 def to_float(v):
     try:
@@ -272,7 +125,7 @@ def ler_sped(conteudo: bytes):
 
 
 # ----------------------------------------------------
-# MODAL DE EDIÇÃO (INALTERADO)
+# MODAL DE EDIÇÃO
 # ----------------------------------------------------
 @st.dialog("✏️ Editar Cadastro")
 def editar_participante(pos, tipo):
@@ -292,13 +145,14 @@ def editar_participante(pos, tipo):
 
 
 # ----------------------------------------------------
-# UPLOAD E RELATÓRIO (100% INTACTO)
+# UPLOAD
 # ----------------------------------------------------
 uploaded_file = st.file_uploader("📤 Envie o arquivo SPED Fiscal (.txt)", type=["txt"])
 
 if uploaded_file:
     empresa, participantes, produtos, notas, itens_nota, icms_cfop, apuracao = ler_sped(uploaded_file.read())
 
+    # EMPRESA
     st.subheader("🏢 Empresa")
     st.dataframe(pd.DataFrame([empresa]), use_container_width=True)
 
@@ -307,6 +161,7 @@ if uploaded_file:
     df_notas = pd.DataFrame(notas)
     df_itens = pd.DataFrame(itens_nota)
 
+    # CLIENTES / FORNECEDORES
     cod_cli = df_notas[df_notas["Operação"] == "Saída"]["Participante"].unique()
     cod_for = df_notas[df_notas["Operação"] == "Entrada"]["Participante"].unique()
 
@@ -316,6 +171,7 @@ if uploaded_file:
     if "df_fornecedores" not in st.session_state:
         st.session_state.df_fornecedores = df_part[df_part["Código"].isin(cod_for)].copy().reset_index(drop=True)
 
+    # CLIENTES
     st.subheader("👥 Clientes")
     st.metric("Total de Clientes", len(st.session_state.df_clientes))
     st.dataframe(st.session_state.df_clientes, use_container_width=True)
@@ -328,6 +184,7 @@ if uploaded_file:
     if st.button("✏️ Editar Cliente"):
         editar_participante(idx_cli, "Cliente")
 
+    # FORNECEDORES
     st.subheader("🏭 Fornecedores")
     st.metric("Total de Fornecedores", len(st.session_state.df_fornecedores))
     st.dataframe(st.session_state.df_fornecedores, use_container_width=True)
@@ -340,10 +197,12 @@ if uploaded_file:
     if st.button("✏️ Editar Fornecedor"):
         editar_participante(idx_for, "Fornecedor")
 
+    # PRODUTOS
     st.subheader("📦 Produtos (0200)")
     st.metric("Total de Produtos", len(df_prod))
     st.dataframe(df_prod, use_container_width=True)
 
+    # NOTAS
     st.subheader("🧾 Notas de Entrada")
     st.metric("Total de Entradas", len(df_notas[df_notas["Operação"] == "Entrada"]))
     st.dataframe(df_notas[df_notas["Operação"] == "Entrada"], use_container_width=True)
@@ -352,10 +211,12 @@ if uploaded_file:
     st.metric("Total de Saídas", len(df_notas[df_notas["Operação"] == "Saída"]))
     st.dataframe(df_notas[df_notas["Operação"] == "Saída"], use_container_width=True)
 
+    # ITENS
     st.subheader("📋 Itens das Notas (C170)")
     st.metric("Total de Itens", len(df_itens))
     st.dataframe(df_itens, use_container_width=True)
 
+    # ICMS
     st.subheader("💰 ICMS por CFOP (C190)")
     df_icms = pd.DataFrame(icms_cfop)
     resumo = df_icms.groupby("CFOP").agg(
@@ -364,9 +225,11 @@ if uploaded_file:
     ).reset_index()
     st.dataframe(resumo, use_container_width=True)
 
+    # APURAÇÃO
     st.subheader("📊 Apuração ICMS (E110)")
     st.dataframe(pd.DataFrame([apuracao]), use_container_width=True)
 
+    # DOWNLOADS
     st.subheader("💾 Downloads")
     c1, c2, c3, c4, c5 = st.columns(5)
 
