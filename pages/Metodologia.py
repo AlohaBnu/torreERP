@@ -16,7 +16,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("📄 Metodologia PO-250")
+st.title("📄 Metodologia PO-2510")
 st.caption("Consulta inteligente ao documento PO-250 com memória, fontes e trechos relevantes.")
 
 
