@@ -15,44 +15,129 @@ st.set_page_config(
 # ----------------------------------------------------
 st.markdown("""
 <style>
-.block-container {
-    padding-top: 3.5rem;
+/* -------------------------
+   GLOBAL
+------------------------- */
+html, body, [class*="css"] {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont;
 }
 
+.block-container {
+    padding-top: 4.2rem;
+    padding-left: 2.5rem;
+    padding-right: 2.5rem;
+}
+
+/* -------------------------
+   HEADER FIXO
+------------------------- */
 .app-header {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
-    height: 60px;
-    background: linear-gradient(90deg, #0f172a, #020617);
+    height: 64px;
+    background: linear-gradient(135deg, #020617, #0f172a);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 32px;
+    padding: 0 36px;
     z-index: 999;
     border-bottom: 1px solid #1e293b;
+    box-shadow: 0 2px 12px rgba(0,0,0,.35);
 }
 
 .app-title {
-    font-size: 18px;
+    font-size: 17px;
     font-weight: 600;
     color: #e5e7eb;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.4px;
 }
 
 .app-logo {
-    font-size: 20px;
-    font-weight: 700;
+    font-size: 22px;
+    font-weight: 800;
     color: #38bdf8;
-    letter-spacing: 1px;
+    letter-spacing: 1.2px;
 }
 
 .app-logo span {
     color: #e5e7eb;
     font-weight: 500;
-    margin-left: 4px;
+    margin-left: 6px;
 }
+
+/* -------------------------
+   TÍTULOS
+------------------------- */
+h1 {
+    font-size: 36px !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.4px;
+}
+
+h2, h3 {
+    font-weight: 700;
+}
+
+/* -------------------------
+   MÉTRICAS
+------------------------- */
+div[data-testid="metric-container"] {
+    background: linear-gradient(180deg, #020617, #020617);
+    border: 1px solid #1e293b;
+    padding: 16px;
+    border-radius: 12px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+}
+
+div[data-testid="metric-container"] label {
+    font-size: 12px;
+    color: #94a3b8 !important;
+}
+
+div[data-testid="metric-container"] div {
+    font-size: 26px;
+    font-weight: 700;
+}
+
+/* -------------------------
+   DATAFRAMES
+------------------------- */
+div[data-testid="stDataFrame"] {
+    border-radius: 14px;
+    border: 1px solid #1e293b;
+    overflow: hidden;
+    box-shadow: 0 4px 18px rgba(0,0,0,.25);
+}
+
+/* -------------------------
+   INPUTS
+------------------------- */
+.stTextInput input,
+.stSelectbox div[data-baseweb="select"] {
+    border-radius: 10px !important;
+}
+
+/* -------------------------
+   BOTÕES
+------------------------- */
+.stButton button,
+.stDownloadButton button {
+    border-radius: 10px;
+    font-weight: 600;
+    padding: 0.45rem 1.1rem;
+}
+
+/* -------------------------
+   SEÇÕES (SUBHEADERS)
+------------------------- */
+section[data-testid="stVerticalBlock"] > div > h3 {
+    margin-top: 30px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #1e293b;
+}
+
 </style>
 
 <div class="app-header">
@@ -292,4 +377,4 @@ if uploaded_file:
     c5.download_button("Itens (CSV)", df_itens.to_csv(index=False, encoding="utf-8-sig"), "itens.csv")
 
 else:
-    st.info("Envie um arquivo SPED Fiscal para iniciar111.")
+    st.info("Envie um arquivo SPED Fiscal para iniciar.")
