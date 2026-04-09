@@ -16,7 +16,7 @@ Leitura de arquivo **SPED Fiscal (.txt)** com extração de:
 - 🏢 Empresa  
 - 👥 Clientes / Fornecedores (editáveis)  
 - 📦 Itens / Produtos  
-- 🧾 Notas Fiscais (Entrada e Saída)  
+- 🧾 Notas Fiscais  
 - 💰 ICMS por CFOP  
 - 📊 Apuração do ICMS  
 """)
@@ -36,15 +36,9 @@ def to_float(v):
 def ler_sped(conteudo: bytes):
     linhas = conteudo.decode("latin1").splitlines()
 
-    empresa = {}
-    participantes = []
-    produtos = []
-    notas = []
-    itens_nota = []
-    icms_cfop = []
-    apuracao = {}
-
-    nota_atual = None
+    empresa, participantes, produtos = {}, [], []
+    notas, itens_nota, icms_cfop = [], [], []
+    apuracao, nota_atual = {}, None
 
     for linha in linhas:
         if not linha.startswith("|"):
@@ -53,9 +47,6 @@ def ler_sped(conteudo: bytes):
         campos = linha.strip().split("|")
         reg = campos[1]
 
-        # --------------------------------------------
-        # BLOCO 0
-        # --------------------------------------------
         if reg == "0000":
             empresa = {
                 "CNPJ": campos[7],
@@ -90,9 +81,6 @@ def ler_sped(conteudo: bytes):
                 "Alíquota ICMS": campos[12] if len(campos) > 12 else None
             })
 
-        # --------------------------------------------
-        # BLOCO C
-        # --------------------------------------------
         elif reg == "C100":
             nota_atual = {
                 "Operação": "Entrada" if campos[2] == "0" else "Saída",
@@ -125,9 +113,6 @@ def ler_sped(conteudo: bytes):
                 "ICMS": to_float(campos[6])
             })
 
-        # --------------------------------------------
-        # BLOCO E
-        # --------------------------------------------
         elif reg == "E110":
             apuracao = {
                 "Débitos": to_float(campos[2]),
@@ -154,15 +139,10 @@ def editar_participante(pos, tipo):
         ie = st.text_input("Inscrição Estadual", p["IE"])
         municipio = st.text_input("Município", p["Município"])
 
-        salvar = st.form_submit_button("💾 Salvar")
-
-        if salvar:
-            df.iloc[pos, df.columns.get_loc("Código")] = codigo
-            df.iloc[pos, df.columns.get_loc("Nome")] = nome
-            df.iloc[pos, df.columns.get_loc("CNPJ")] = cnpj
-            df.iloc[pos, df.columns.get_loc("IE")] = ie
-            df.iloc[pos, df.columns.get_loc("Município")] = municipio
+        if st.form_submit_button("💾 Salvar"):
+            df.iloc[pos] = [codigo, nome, p["Código País"], cnpj, p["CPF"], ie, municipio]
             st.success("Cadastro atualizado com sucesso!")
+
 
 # ----------------------------------------------------
 # UPLOAD
@@ -172,6 +152,7 @@ uploaded_file = st.file_uploader("📤 Envie o arquivo SPED Fiscal (.txt)", type
 if uploaded_file:
     empresa, participantes, produtos, notas, itens_nota, icms_cfop, apuracao = ler_sped(uploaded_file.read())
 
+    # EMPRESA
     st.subheader("🏢 Empresa")
     st.dataframe(pd.DataFrame([empresa]), use_container_width=True)
 
@@ -192,6 +173,7 @@ if uploaded_file:
 
     # CLIENTES
     st.subheader("👥 Clientes")
+    st.metric("Total de Clientes", len(st.session_state.df_clientes))
     st.dataframe(st.session_state.df_clientes, use_container_width=True)
 
     idx_cli = st.selectbox(
@@ -199,12 +181,12 @@ if uploaded_file:
         st.session_state.df_clientes.index,
         format_func=lambda i: st.session_state.df_clientes.loc[i, "Nome"]
     )
-
     if st.button("✏️ Editar Cliente"):
         editar_participante(idx_cli, "Cliente")
 
     # FORNECEDORES
     st.subheader("🏭 Fornecedores")
+    st.metric("Total de Fornecedores", len(st.session_state.df_fornecedores))
     st.dataframe(st.session_state.df_fornecedores, use_container_width=True)
 
     idx_for = st.selectbox(
@@ -212,23 +194,26 @@ if uploaded_file:
         st.session_state.df_fornecedores.index,
         format_func=lambda i: st.session_state.df_fornecedores.loc[i, "Nome"]
     )
-
     if st.button("✏️ Editar Fornecedor"):
         editar_participante(idx_for, "Fornecedor")
 
     # PRODUTOS
     st.subheader("📦 Produtos (0200)")
+    st.metric("Total de Produtos", len(df_prod))
     st.dataframe(df_prod, use_container_width=True)
 
     # NOTAS
     st.subheader("🧾 Notas de Entrada")
+    st.metric("Total de Entradas", len(df_notas[df_notas["Operação"] == "Entrada"]))
     st.dataframe(df_notas[df_notas["Operação"] == "Entrada"], use_container_width=True)
 
     st.subheader("🧾 Notas de Saída")
+    st.metric("Total de Saídas", len(df_notas[df_notas["Operação"] == "Saída"]))
     st.dataframe(df_notas[df_notas["Operação"] == "Saída"], use_container_width=True)
 
     # ITENS
     st.subheader("📋 Itens das Notas (C170)")
+    st.metric("Total de Itens", len(df_itens))
     st.dataframe(df_itens, use_container_width=True)
 
     # ICMS
@@ -246,7 +231,6 @@ if uploaded_file:
 
     # DOWNLOADS
     st.subheader("💾 Downloads")
-
     c1, c2, c3, c4, c5 = st.columns(5)
 
     c1.download_button("Clientes (CSV)", st.session_state.df_clientes.to_csv(index=False, encoding="utf-8-sig"), "clientes.csv")
